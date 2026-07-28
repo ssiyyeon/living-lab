@@ -21,12 +21,13 @@ from sklearn.pipeline import FeatureUnion
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from manual.rule_lookup import load_situations, KEYWORDS  # noqa: E402
+from manual.rule_lookup import load_situations, KEYWORDS, match_manual  # noqa: E402
 from search.reference_cases import load_reference_cases  # noqa: E402
 
-# 근거 판정 임계치 (search/tune_thresholds.py 에서 실제 쿼리로 조정한 값)
-MANUAL_THRESHOLD = 0.12     # 이 이상이면 "근거 명확" -> 매뉴얼 확정 안내
-REFERENCE_THRESHOLD = 0.10  # 매뉴얼 미달 시, 참고사례로 인정할 최소 유사도
+# 근거 판정 임계치 (search/evaluate_engine.py로 전체 데이터에 대해 검증한 값)
+# 매뉴얼 tier는 키워드 매칭(manual/rule_lookup.match_manual)으로만 확정하고,
+# 유사도는 참고사례/근거불충분 판정에만 쓴다 — 아래 REFERENCE_THRESHOLD 설명 참고.
+REFERENCE_THRESHOLD = 0.10  # 참고사례로 인정할 최소 유사도
 MIN_RELEVANCE = 0.03        # 이보다 낮으면 "관련 문서 자체가 없음"으로 판단
 
 NO_RESULT_MESSAGE = (
@@ -96,24 +97,40 @@ class SearchEngine:
         self.union = FeatureUnion([("char", char_vec), ("word", word_vec)])
         self.doc_matrix = self.union.fit_transform([d["text"] for d in all_docs])
         self.n_manual = len(self.manual_docs)
+        self.manual_by_key = {(d["부서"], d["민원유형"]): d for d in self.manual_docs}
 
     def _scores(self, query: str) -> np.ndarray:
         q = self.union.transform([query])
         return cosine_similarity(q, self.doc_matrix)[0]
 
     def search(self, query: str, top_k: int = 3) -> dict:
-        scores = self._scores(query)
-        manual_scores = scores[: self.n_manual]
-        reference_scores = scores[self.n_manual:]
+        # 키워드가 정확히 일치하면(manual/rule_lookup.match_manual) 유사도 점수와
+        # 무관하게 무조건 매뉴얼 확정 응답으로 취급한다. 전체 데이터로 검증해보니
+        # 순수 유사도 임계치만 쓰면 키워드가 명백히 일치하는 건도 문서 본문 길이
+        # 때문에 임계치를 못 넘겨 "근거불충분"으로 격하되는 회귀가 294건(13%) 있었다.
+        # 키워드 일치는 유사도보다 신뢰도가 높은 신호이므로 먼저 확정한다.
+        rule_hits = match_manual(query)
+        if rule_hits:
+            seen = set()
+            results = []
+            for hit in rule_hits:
+                key = (hit["부서"], hit["민원요지"])
+                if key in seen or key not in self.manual_by_key:
+                    continue
+                seen.add(key)
+                results.append({**self.manual_by_key[key], "유사도": None})
+                if len(results) >= top_k:
+                    break
+            return {"근거수준": "매뉴얼", "안내": None, "결과": results}
 
-        manual_order = np.argsort(manual_scores)[::-1]
-        if manual_scores[manual_order[0]] >= MANUAL_THRESHOLD:
-            hits = [i for i in manual_order[:top_k] if manual_scores[i] >= MANUAL_THRESHOLD]
-            return {
-                "근거수준": "매뉴얼",
-                "안내": None,
-                "결과": [{**self.manual_docs[i], "유사도": round(float(manual_scores[i]), 3)} for i in hits],
-            }
+        # 주의: 매뉴얼 tier는 위의 키워드 매칭에서만 확정한다. TF-IDF 유사도만으로
+        # 매뉴얼 확정 응답을 준 버전을 전체 데이터로 검증했더니, 키워드가 없는데
+        # 유사도만으로 "매뉴얼"이라고 한 725건의 실제 부서 일치율이 48.7%에 불과했다
+        # (키워드 매칭 건은 89.0%). 절반 가까이 틀리는 걸 "공식 매뉴얼 근거"라고
+        # 내보내는 건 명세서의 "근거 불충분 시 임의 답변 금지" 원칙 위반이라 판단해
+        # 이 경로는 제거했다 — 유사도만 있는 경우는 최대 "참고사례"까지만 인정한다.
+        scores = self._scores(query)
+        reference_scores = scores[self.n_manual:]
 
         ref_order = np.argsort(reference_scores)[::-1]
         if reference_scores[ref_order[0]] >= REFERENCE_THRESHOLD:
@@ -152,4 +169,5 @@ if __name__ == "__main__":
         print(f"\n민원: {q}")
         print(f"  근거수준: {r['근거수준']}" + (f" | {r['안내']}" if r["안내"] else ""))
         for hit in r["결과"]:
-            print(f"  - [{hit['tier']}] {hit['민원유형']} (부서: {hit['부서']}, 유사도 {hit['유사도']})")
+            score = "키워드 정확매칭" if hit["유사도"] is None else f"유사도 {hit['유사도']}"
+            print(f"  - [{hit['tier']}] {hit['민원유형']} (부서: {hit['부서']}, {score})")

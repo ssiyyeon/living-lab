@@ -48,7 +48,8 @@ def _print_result(text: str) -> None:
     if not outcome["결과"]:
         return
     for r in outcome["결과"]:
-        print(f"  - [{r['tier']}] {r['민원유형']} (부서: {r['부서']}, 유사도 {r['유사도']})")
+        score = "키워드 정확매칭" if r["유사도"] is None else f"유사도 {r['유사도']}"
+        print(f"  - [{r['tier']}] {r['민원유형']} (부서: {r['부서']}, {score})")
         if r.get("관련문단"):
             print(f"    관련문단: {r['관련문단']}")
         if r.get("참고사항"):
