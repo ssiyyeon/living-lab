@@ -51,7 +51,7 @@ def save_feedback(
     row = {
         "시각": datetime.datetime.now().isoformat(timespec="seconds"),
         "민원내용": text,
-        "출처": outcome["출처"],
+        "출처": outcome["근거수준"],
         "추천부서_1순위": top1,
         "정확여부": "맞음" if correct else "틀림",
         "실제부서": actual_dept or (top1 if correct else ""),
