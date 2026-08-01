@@ -22,6 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from manual.rule_lookup import load_situations, KEYWORDS, match_manual  # noqa: E402
+from manual.general_lookup import load_general_docs, match_general, KEYWORDS as KEYWORDS_GENERAL  # noqa: E402
 from search.reference_cases import load_reference_cases  # noqa: E402
 
 # 근거 판정 임계치 (search/evaluate_engine.py로 전체 데이터에 대해 검증한 값)
@@ -58,11 +59,34 @@ def _build_manual_docs() -> list[dict]:
             "text": text,
             "부서": dept,
             "민원유형": situation,
-            "관련문단": " ".join(s.get("처리방법", [])[:5]),
-            "참고사항": " ".join(s.get("참고사항", [])[:5]),
-            "담당자": s.get("담당자", [None])[0],
+            "관련문단": "\n".join(s.get("처리방법", [])),
+            "참고사항": "\n".join(s.get("참고사항", [])),
+            "담당자": "\n".join(s.get("담당자", [])) or None,
             "문서명": "당직 근무요령 및 상황별 매뉴얼",
             "페이지": s.get("페이지"),
+        })
+    return docs
+
+
+def _build_general_docs() -> list[dict]:
+    """민원 대응 케이스가 아닌 나머지 매뉴얼 내용(당직근무자 준수사항, 청사 시건,
+    비상연락망, 소화기 비치 등). manual/parse_general_sections.py 참고."""
+    docs_by_title = load_general_docs()
+    docs = []
+    for title, d in docs_by_title.items():
+        keywords = KEYWORDS_GENERAL.get(title, [])
+        boosted = " ".join([title] + keywords) + " "
+        text = boosted * 6 + " ".join(d.get("내용", []))
+        docs.append({
+            "tier": "일반매뉴얼",
+            "text": text,
+            "부서": None,
+            "민원유형": title,
+            "관련문단": "\n".join(d.get("내용", [])),
+            "참고사항": "당직 근무자 본인이 참고하는 내부 근무수칙입니다 (민원 대응 절차 아님).",
+            "담당자": None,
+            "문서명": "당직 근무요령 및 상황별 매뉴얼",
+            "페이지": d.get("페이지범위"),
         })
     return docs
 
@@ -90,6 +114,10 @@ class SearchEngine:
     def __init__(self):
         self.manual_docs = _build_manual_docs()
         self.reference_docs = _build_reference_docs()
+        # 일반매뉴얼(당직근무자 준수사항 등)은 민원 대응 케이스가 아니라서 TF-IDF
+        # 유사도 검색 대상(doc_matrix)에는 안 넣고, 키워드 정확매칭으로만 찾는다.
+        self.general_docs = _build_general_docs()
+        self.general_by_title = {d["민원유형"]: d for d in self.general_docs}
         all_docs = self.manual_docs + self.reference_docs
 
         char_vec = TfidfVectorizer(analyzer="char_wb", ngram_range=(2, 4), min_df=1)
@@ -122,6 +150,23 @@ class SearchEngine:
                 if len(results) >= top_k:
                     break
             return {"근거수준": "매뉴얼", "안내": None, "결과": results}
+
+        # 민원 대응 케이스는 아니지만(당직근무자 준수사항, 청사 시건, 소화기 비치 등)
+        # 당직자 본인이 근무 중 참고할 수 있는 나머지 매뉴얼 내용. 이것도 키워드
+        # 정확매칭으로만 확정한다(위 매뉴얼 tier와 같은 원칙).
+        general_hits = match_general(query)
+        if general_hits:
+            seen = set()
+            results = []
+            for hit in general_hits:
+                title = hit["제목"]
+                if title in seen or title not in self.general_by_title:
+                    continue
+                seen.add(title)
+                results.append({**self.general_by_title[title], "유사도": None})
+                if len(results) >= top_k:
+                    break
+            return {"근거수준": "일반매뉴얼", "안내": None, "결과": results}
 
         # 주의: 매뉴얼 tier는 위의 키워드 매칭에서만 확정한다. TF-IDF 유사도만으로
         # 매뉴얼 확정 응답을 준 버전을 전체 데이터로 검증했더니, 키워드가 없는데

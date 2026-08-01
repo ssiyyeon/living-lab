@@ -25,7 +25,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from model.common import load_data  # noqa: E402
+from common import load_data  # noqa: E402
 from manual.rule_lookup import match_manual  # noqa: E402
 from search.engine import SearchEngine  # noqa: E402
 

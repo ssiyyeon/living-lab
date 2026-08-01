@@ -26,6 +26,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, BASE_DIR)
 
 from search.engine import SearchEngine  # noqa: E402
+from search.followup import get_followup  # noqa: E402
 
 _engine = None
 
@@ -41,6 +42,43 @@ def recommend(text: str) -> dict:
     return _get_engine().search(text)
 
 
+_EXCEPTION_NUM = "0"
+
+
+def _ask_followup(followup: dict, dept: str, contact: str) -> None:
+    # "이 중 어디에도 안 맞음"은 매번 반복 작성하지 않고, 모든 역질문에 공통으로 붙인다.
+    # 억지로 선택지 하나를 고르게 하지 않고, 애매하면 담당 부서로 직접 문의하도록
+    # 안내하는 게 "근거 불충분 시 임의 답변 금지" 원칙과 일치한다.
+    print(f"    ▶ {followup['질문']}")
+    for opt in followup["선택지"]:
+        print(f"      {opt['번호']}. {opt['label']}")
+    print(f"      {_EXCEPTION_NUM}. 위 어디에도 해당하지 않음 / 애매함")
+    try:
+        choice = input("      선택 > ").strip()
+    except (EOFError, KeyboardInterrupt):
+        print("\n종료합니다.")
+        return
+
+    if choice == _EXCEPTION_NUM:
+        print("    → 위 케이스에 해당하지 않는 예외 상황입니다.")
+        print(f"      매뉴얼에 정확히 규정되지 않았으니, 임의로 안내하지 말고 {dept}에 직접 문의하세요.")
+        if contact:
+            print(f"      연락처: {contact}")
+        return
+
+    picked = next((opt for opt in followup["선택지"] if opt["번호"] == choice), None)
+    if not picked:
+        print("      (잘못된 선택입니다. 번호로 다시 입력해주세요)")
+        return
+    print(f"    → {picked['label']}")
+    for line in picked["답변"].split("\n"):
+        print(f"      {line}")
+    if contact:
+        print("    담당자:")
+        for line in contact.split("\n"):
+            print(f"      {line}")
+
+
 def _print_result(text: str) -> None:
     print(f"\n민원: {text}")
     outcome = recommend(text)
@@ -50,12 +88,30 @@ def _print_result(text: str) -> None:
     for r in outcome["결과"]:
         score = "키워드 정확매칭" if r["유사도"] is None else f"유사도 {r['유사도']}"
         print(f"  - [{r['tier']}] {r['민원유형']} (부서: {r['부서']}, {score})")
+
+        # 주의: r["tier"]는 문서 자체의 고정 속성이라, 유사도만으로 "근거불충분"
+        # 버킷에 들어간 매뉴얼 문서에도 "매뉴얼"로 찍혀있다. 되묻기는 키워드
+        # 정확매칭(유사도=None)일 때만 확신을 갖고 띄워야 하므로 이걸로 판단한다.
+        is_confirmed_manual = r["tier"] == "매뉴얼" and r["유사도"] is None
+        followup = get_followup(r["부서"], r["민원유형"]) if is_confirmed_manual else None
+        if followup:
+            # 매뉴얼 원문 하나에 여러 세부 케이스가 섞여있는 항목은, 전체를 다 보여주는
+            # 대신 되물어서 해당하는 부분만 짧게 안내한다 (search/followup.py 참고)
+            _ask_followup(followup, r["부서"], r.get("담당자") or "")
+            continue
+
         if r.get("관련문단"):
-            print(f"    관련문단: {r['관련문단']}")
+            print("    관련문단(매뉴얼 원문 전체):")
+            for line in r["관련문단"].split("\n"):
+                print(f"      {line}")
         if r.get("참고사항"):
-            print(f"    참고사항: {r['참고사항']}")
+            print("    참고사항:")
+            for line in r["참고사항"].split("\n"):
+                print(f"      {line}")
         if r.get("담당자"):
-            print(f"    담당자: {r['담당자']}")
+            print("    담당자:")
+            for line in r["담당자"].split("\n"):
+                print(f"      {line}")
 
 
 if __name__ == "__main__":

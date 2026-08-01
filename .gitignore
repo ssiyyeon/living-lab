@@ -4,15 +4,13 @@
 
 # PDF 매뉴얼을 파싱한 원문 (직원 연락처 등 PDF와 동일한 민감정보 포함)
 manual/situations.json
+manual/general_docs.json
 
 # 실제 민원내용 텍스트가 섞인 파생 데이터/로그
 analysis/action_categorized.csv
 analysis/feedback_log.csv
 analysis/recurring_complaint_types.json
 analysis/recurring_complaint_types_curated.json
-
-# 학습된 모델 아티팩트 (model/train_and_save.py로 재생성 가능한 바이너리)
-model/artifacts/
 
 # Python
 __pycache__/

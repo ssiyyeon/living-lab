@@ -44,6 +44,18 @@ def test_match_manual():
     check("무관한 텍스트는 매칭 없음", hits == [], hits)
 
 
+def test_match_general():
+    print("\n[manual.general_lookup.match_general]")
+    from manual.general_lookup import match_general
+
+    hits = match_general("소화기 어디 있어요")
+    titles = [h["제목"] for h in hits]
+    check("소화기 -> 소화기 비치 문서 매칭", "소화기 및 질식소화포 비치" in titles, titles)
+
+    hits = match_general("오늘 날씨가 참 좋네요")
+    check("무관한 텍스트는 매칭 없음", hits == [], hits)
+
+
 def test_load_situations_strips_noise():
     print("\n[manual.rule_lookup.load_situations - 잡음 라인 제거]")
     from manual.rule_lookup import load_situations
@@ -58,13 +70,15 @@ def test_load_situations_strips_noise():
 
 def test_recommend():
     print("\n[app.recommend.recommend / search.engine - 근거수준별 케이스]")
-    curated_path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "analysis", "recurring_complaint_types_curated.json",
-    )
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    curated_path = os.path.join(root, "analysis", "recurring_complaint_types_curated.json")
+    general_docs_path = os.path.join(root, "manual", "general_docs.json")
     if not os.path.exists(curated_path):
         print("  SKIP: analysis/recurring_complaint_types_curated.json 없음 "
               "(먼저 cluster_complaints.py, curate_recurring_types.py 실행 필요)")
+        return
+    if not os.path.exists(general_docs_path):
+        print("  SKIP: manual/general_docs.json 없음 (먼저 parse_general_sections.py 실행 필요)")
         return
 
     from app.recommend import recommend
@@ -80,6 +94,13 @@ def test_recommend():
         "매뉴얼 미등재지만 반복유형인 경우 근거수준=참고사례",
         outcome2["근거수준"] == "참고사례",
         outcome2["근거수준"],
+    )
+
+    outcome4 = recommend("소화기 어디 있어요")
+    check(
+        "민원 대응 케이스가 아닌 내부 근무수칙은 근거수준=일반매뉴얼",
+        outcome4["근거수준"] == "일반매뉴얼",
+        outcome4["근거수준"],
     )
 
     outcome3 = recommend("asdkjaslkdj 완전히 무관한 잡담입니다 오늘 저녁 뭐 먹지")
@@ -114,6 +135,7 @@ def test_feedback_roundtrip():
 
 if __name__ == "__main__":
     test_match_manual()
+    test_match_general()
     test_load_situations_strips_noise()
     test_recommend()
     test_feedback_roundtrip()
