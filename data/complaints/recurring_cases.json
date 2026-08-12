@@ -1,0 +1,511 @@
+[
+  {
+    "type": "동물 사체(로드킬 등) 처리 요청",
+    "candidate_count": 663,
+    "merged_candidate_ids": [
+      2,
+      8,
+      10,
+      11,
+      21,
+      24,
+      51
+    ],
+    "main_departments": [
+      "청소행정과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "7개 후보(#2,8,10,11,21,24,51) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "불법 주정차 단속 요청",
+    "candidate_count": 663,
+    "merged_candidate_ids": [
+      3,
+      12,
+      13,
+      15,
+      18,
+      20,
+      30,
+      31
+    ],
+    "main_departments": [
+      "주차관리과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "8개 후보(#3,12,13,15,18,20,30,31) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "가로등 고장 신고",
+    "candidate_count": 448,
+    "merged_candidate_ids": [
+      4,
+      6,
+      7,
+      14,
+      46,
+      62
+    ],
+    "main_departments": [
+      "건설과",
+      "공원과",
+      "재난안전과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "6개 후보(#4,6,7,14,46,62) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "불법 현수막 철거 요청",
+    "candidate_count": 182,
+    "merged_candidate_ids": [
+      22,
+      33,
+      34,
+      38,
+      52,
+      56
+    ],
+    "main_departments": [
+      "건축과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "6개 후보(#22,33,34,38,52,56) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "도로 시설물 파손 신고",
+    "candidate_count": 135,
+    "merged_candidate_ids": [
+      5
+    ],
+    "main_departments": [
+      "건설과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "공원 시설물 훼손·하자 신고",
+    "candidate_count": 94,
+    "merged_candidate_ids": [
+      35,
+      36,
+      39
+    ],
+    "main_departments": [
+      "공원과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "3개 후보(#35,36,39) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "부상 동물(고라니 등) 구조 신고",
+    "candidate_count": 80,
+    "merged_candidate_ids": [
+      19,
+      48
+    ],
+    "main_departments": [
+      "지역산업과",
+      "푸른환경과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "2개 후보(#19,48) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "불법 노점상 단속 요청",
+    "candidate_count": 64,
+    "merged_candidate_ids": [
+      16
+    ],
+    "main_departments": [
+      "건설과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "식품위생법 위반 등 영업 신고",
+    "candidate_count": 60,
+    "merged_candidate_ids": [
+      17
+    ],
+    "main_departments": [
+      "위생과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "유기동물 보호중 신고",
+    "candidate_count": 57,
+    "merged_candidate_ids": [
+      29,
+      68
+    ],
+    "main_departments": [
+      "지역산업과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "2개 후보(#29,68) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "제설 작업 요청",
+    "candidate_count": 57,
+    "merged_candidate_ids": [
+      37,
+      66,
+      69
+    ],
+    "main_departments": [
+      "건설과",
+      "노은3동",
+      "진잠동"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "3개 후보(#37,66,69) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "지역 행사(축제 등) 관련 문의·소음 민원",
+    "candidate_count": 46,
+    "merged_candidate_ids": [
+      25
+    ],
+    "main_departments": [
+      "문화관광체육과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "가지치기 등 수목 관리 요청",
+    "candidate_count": 45,
+    "merged_candidate_ids": [
+      27
+    ],
+    "main_departments": [
+      "녹지산림과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "미성년자 주류판매 단속 신고",
+    "candidate_count": 38,
+    "merged_candidate_ids": [
+      58,
+      70,
+      74
+    ],
+    "main_departments": [
+      "문화관광체육과",
+      "위생과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "3개 후보(#58,70,74) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "화물차 등 밤샘주차 단속 요청",
+    "candidate_count": 37,
+    "merged_candidate_ids": [
+      43,
+      61
+    ],
+    "main_departments": [
+      "교통정책과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "2개 후보(#43,61) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "교통사고 잔해물 처리 요청",
+    "candidate_count": 35,
+    "merged_candidate_ids": [
+      32
+    ],
+    "main_departments": [
+      "청소행정과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "장애인 주차구역 관련 신고·문의",
+    "candidate_count": 35,
+    "merged_candidate_ids": [
+      53,
+      54
+    ],
+    "main_departments": [
+      "노인장애인과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "2개 후보(#53,54) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "방치 오토바이(무번호판) 신고",
+    "candidate_count": 34,
+    "merged_candidate_ids": [
+      41,
+      73
+    ],
+    "main_departments": [
+      "교통정책과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "2개 후보(#41,73) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "나무 쓰러짐 신고",
+    "candidate_count": 30,
+    "merged_candidate_ids": [
+      49,
+      71
+    ],
+    "main_departments": [
+      "녹지산림과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "2개 후보(#49,71) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "불법건축물 신고 처리결과 문의",
+    "candidate_count": 23,
+    "merged_candidate_ids": [
+      42
+    ],
+    "main_departments": [
+      "건축과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "반려동물(목줄 등 미착용) 단속 요청",
+    "candidate_count": 22,
+    "merged_candidate_ids": [
+      44
+    ],
+    "main_departments": [
+      "지역산업과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "생계지원금·수급자 관련 문의",
+    "candidate_count": 20,
+    "merged_candidate_ids": [
+      47
+    ],
+    "main_departments": [
+      "생활보장과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "공사장 관련 민원·문의",
+    "candidate_count": 16,
+    "merged_candidate_ids": [
+      57
+    ],
+    "main_departments": [
+      "공동주택과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "CCTV 열람·확인 문의",
+    "candidate_count": 16,
+    "merged_candidate_ids": [
+      59
+    ],
+    "main_departments": [
+      "회계과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "공원 행사 소음 민원",
+    "candidate_count": 13,
+    "merged_candidate_ids": [
+      67
+    ],
+    "main_departments": [
+      "공원과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "그늘막 등 시설물 파손 신고",
+    "candidate_count": 11,
+    "merged_candidate_ids": [
+      72
+    ],
+    "main_departments": [
+      "재난안전과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  }
+]

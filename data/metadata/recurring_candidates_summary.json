@@ -1,0 +1,32 @@
+{
+  "total_complaints": 5624,
+  "manual_covered_estimate": 1532,
+  "manual_covered_by_case": {
+    "manual_case_011": 336,
+    "manual_case_014": 300,
+    "manual_case_020": 211,
+    "manual_case_023": 194,
+    "manual_case_012": 100,
+    "manual_case_016": 91,
+    "manual_case_013": 90,
+    "manual_case_029": 90,
+    "manual_case_015": 22,
+    "manual_case_017": 21,
+    "manual_case_022": 18,
+    "manual_case_019": 18,
+    "manual_case_018": 18,
+    "manual_case_024": 10,
+    "manual_case_026": 7,
+    "manual_case_030": 3,
+    "manual_case_025": 2,
+    "manual_case_021": 1
+  },
+  "uncovered_total": 4092,
+  "candidates_generated": 74,
+  "review_completed": true,
+  "review_approved_candidates": 61,
+  "review_rejected_candidates": 13,
+  "final_recurring_types_after_merge": 26,
+  "final_recurring_types_total_count": 2924,
+  "note": "74개 원시 후보를 recurring_review.csv에서 2단계로 검수함. 1단계는 표본 민원 2건을 직접 대조해 승인 41/반려 33으로 판정. 2단계는 반려 33건을 표본 2건이 아니라 클러스터 전체의 대표어(top_terms)로 다시 검토해, 대표어에 뚜렷한 다수 주제가 있는 20건을 추가 승인(신규 유형 7개 포함)했음. 최종 승인 61건을 같은 실제 유형으로 쪼개진 것끼리 병합해 26개 유형·2,924건을 recurring_cases.json에 등록함. 남은 반려 13건은 대표어 자체가 조사·범용어뿐이거나(예: '요청/조치/있음') 지명 파편뿐이라 클러스터 수준에서도 다수 주제를 특정할 수 없는 경우임(recurring_review.csv의 ai_reasoning/final_decision_basis 참고)."
+}

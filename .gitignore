@@ -1,21 +1,16 @@
-# 원본 민원 데이터 (개인정보 포함 가능) - 로컬에만 보관, 저장소에는 올리지 않음
-*.xlsx
-*.pdf
+private/
+data/raw/
 
-# PDF 매뉴얼을 파싱한 원문 (직원 연락처 등 PDF와 동일한 민감정보 포함)
-manual/situations.json
-manual/general_docs.json
+# 안전장치: private/raw로 복사는 했지만 프로젝트 최상위에도 남아있는 원본 파일들.
+# 실수로 git add -A 등을 하더라도 커밋되지 않도록 파일명으로 한 번 더 제외한다.
+# (원본은 삭제하지 않고 위치만 방어적으로 제외 - 데이터 훼손 방지 원칙)
+/*.pdf
+/당직민원 목록*.xlsx
 
-# 실제 민원내용 텍스트가 섞인 파생 데이터/로그
-analysis/action_categorized.csv
-analysis/feedback_log.csv
-analysis/recurring_complaint_types.json
-analysis/recurring_complaint_types_curated.json
+# OS / editor
+.DS_Store
 
-# Python
+# python
 __pycache__/
 *.pyc
-
-# OS / 로컬 개인 설정
-.DS_Store
-.claude/settings.local.json
+.venv/
