@@ -14,3 +14,7 @@ data/raw/
 __pycache__/
 *.pyc
 .venv/
+
+# search/build_index.py로 재생성 가능한 빌드 캐시(pickle·임베딩 벡터, 데이터 자체는
+# 공개된 data/ 기반이라 민감정보 아님 - 재현 가능한 산출물이라 커밋 대상에서만 제외)
+search/index/

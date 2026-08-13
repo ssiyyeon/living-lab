@@ -1,6 +1,8 @@
 """최종 산출물을 모두 읽어 data/metadata/dataset_summary.json 으로 집계한다."""
 import json
 import csv
+import re
+import subprocess
 import pandas as pd
 
 manual_cases = json.load(open("data/manual/manual_cases.json", encoding="utf-8"))
@@ -9,6 +11,31 @@ cleaning_report = json.load(open("data/metadata/cleaning_report.json", encoding=
 recurring_summary = json.load(open("data/metadata/recurring_candidates_summary.json", encoding="utf-8"))
 complaints = pd.read_csv("data/complaints/complaints_clean.csv")
 page_mapping = list(csv.DictReader(open("data/metadata/pdf_page_mapping.csv", encoding="utf-8")))
+
+try:
+    contacts = json.load(open("private/contacts.json", encoding="utf-8"))
+    redacted_contact_count = len(contacts)
+except FileNotFoundError:
+    redacted_contact_count = None
+
+try:
+    tracked = subprocess.run(["git", "ls-files"], capture_output=True, text=True, check=True).stdout
+    private_dir_git_tracked = any(line.startswith("private/") for line in tracked.splitlines())
+except Exception:
+    private_dir_git_tracked = None
+
+MOBILE_RE = re.compile(r"01[016789][.\-\s]?\d{3,4}[.\-\s]?\d{4}")
+
+
+def _full_text(rec):
+    if "content_by_page" in rec:
+        return " ".join(p["text"] for p in rec["content_by_page"])
+    return rec["content"]
+
+
+leftover_mobile_matches = sum(
+    len(MOBILE_RE.findall(_full_text(rec))) for rec in manual_cases + manual_sections
+)
 
 summary = {
     "manual": {
@@ -41,8 +68,10 @@ summary = {
                     else "사람 검수 대기 (recurring_review.csv 확인 후 승인된 건만 recurring_cases.json에 등록 예정)"),
     },
     "personal_info_handling": {
-        "private_dir_git_tracked": None,  # 최종 검증 단계에서 채움
-        "redacted_contact_matches_in_manual": None,  # 최종 검증 단계에서 채움
+        "private_dir_git_tracked": private_dir_git_tracked,
+        "redacted_contact_matches_in_manual": redacted_contact_count,
+        "leftover_mobile_pattern_in_public_json": leftover_mobile_matches,
+        "masking_style": "이름은 가운데 글자만 마스킹(예: 박문용 -> 박*용), 연락처는 [개인 연락처 비공개]로 전체 마스킹",
     },
 }
 

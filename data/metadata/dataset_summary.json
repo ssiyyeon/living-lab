@@ -88,14 +88,16 @@
     "manual_covered_estimate": 1532,
     "uncovered_total": 4092,
     "review_completed": true,
-    "review_approved_candidates": 61,
-    "review_rejected_candidates": 13,
+    "review_approved_candidates": 58,
+    "review_rejected_candidates": 16,
     "final_recurring_types": 26,
-    "final_recurring_types_total_count": 2924,
+    "final_recurring_types_total_count": 2878,
     "status": "검수 완료, recurring_cases.json에 최종 유형 등록됨"
   },
   "personal_info_handling": {
-    "private_dir_git_tracked": null,
-    "redacted_contact_matches_in_manual": null
+    "private_dir_git_tracked": false,
+    "redacted_contact_matches_in_manual": 361,
+    "leftover_mobile_pattern_in_public_json": 0,
+    "masking_style": "이름은 가운데 글자만 마스킹(예: 박문용 -> 박*용), 연락처는 [개인 연락처 비공개]로 전체 마스킹"
   }
 }

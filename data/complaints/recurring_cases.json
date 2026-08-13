@@ -71,7 +71,25 @@
       2025,
       2026
     ],
-    "evidence_level": "historical_case"
+    "evidence_level": "historical_case",
+    "manual_gap_note": "당직근무 민원처리 매뉴얼(52~84p, 평상시 민원 대응 21개 항목)에는 '가로등 고장 신고' 항목이 아예 없음. 매뉴얼에 '가로등'이 나오는 곳은 manual_case_001(태풍/호우), manual_case_004(화재) 2건뿐인데 둘 다 '재난상황 시 당직사령 행동매뉴얼' 소속으로, 재난으로 가로등이 파손됐을 때 건설과 전기팀이 출동한다는 규정이지 평상시 단순 고장 신고와는 다른 상황임. 즉 평상시 가로등 고장은 매뉴얼에 근거가 전혀 없는 순수 참고자료(historical_case)임.",
+    "department_routing": [
+      {
+        "department": "건설과",
+        "condition": "도로·대로변 가로등(가장 흔한 케이스, #4/#6/#7/#14 표본 전부 도로변). 재난 상황(태풍/화재)의 가로등 파손도 매뉴얼상 건설과 전기팀 소관이라 평상시에도 건설과일 가능성이 높음",
+        "confidence": "높음"
+      },
+      {
+        "department": "공원과",
+        "condition": "공원 내부 가로등(#46 표본: '인삼어린이공원', '왕골근린공원') 2건이 처리부서=공원과로 기록됨",
+        "confidence": "낮음 - 표본 2건뿐이고 매뉴얼의 '가로등=건설과 전기팀' 경향과도 상충함. 이 2건이 실제 규칙(소규모 공원 내 시설은 공원과 관할)인지, 그때그때 당직자가 다르게 배정한 예외인지 구분 불가 - 확인 전까지는 참고만 할 것"
+      },
+      {
+        "department": "재난안전과",
+        "condition": "하천변·수변 보안등(#62 표본2: '하천에서 보안등 안들어옴')",
+        "confidence": "낮음 - #62 표본1은 무관 내용이라 클러스터 자체 신뢰도도 낮음"
+      }
+    ]
   },
   {
     "type": "불법 현수막 철거 요청",
@@ -135,18 +153,16 @@
     "evidence_level": "historical_case"
   },
   {
-    "type": "부상 동물(고라니 등) 구조 신고",
-    "candidate_count": 80,
+    "type": "불법 노점상 단속 요청",
+    "candidate_count": 64,
     "merged_candidate_ids": [
-      19,
-      48
+      16
     ],
     "main_departments": [
-      "지역산업과",
-      "푸른환경과"
+      "건설과"
     ],
     "review_result": "approved",
-    "reviewer_note": "2개 후보(#19,48) 병합",
+    "reviewer_note": "단독 후보",
     "source_years": [
       2024,
       2025,
@@ -155,13 +171,13 @@
     "evidence_level": "historical_case"
   },
   {
-    "type": "불법 노점상 단속 요청",
-    "candidate_count": 64,
+    "type": "부상 동물(고라니 등) 구조 신고",
+    "candidate_count": 60,
     "merged_candidate_ids": [
-      16
+      19
     ],
     "main_departments": [
-      "건설과"
+      "푸른환경과"
     ],
     "review_result": "approved",
     "reviewer_note": "단독 후보",
@@ -202,28 +218,6 @@
     ],
     "review_result": "approved",
     "reviewer_note": "2개 후보(#29,68) 병합",
-    "source_years": [
-      2024,
-      2025,
-      2026
-    ],
-    "evidence_level": "historical_case"
-  },
-  {
-    "type": "제설 작업 요청",
-    "candidate_count": 57,
-    "merged_candidate_ids": [
-      37,
-      66,
-      69
-    ],
-    "main_departments": [
-      "건설과",
-      "노은3동",
-      "진잠동"
-    ],
-    "review_result": "approved",
-    "reviewer_note": "3개 후보(#37,66,69) 병합",
     "source_years": [
       2024,
       2025,
@@ -286,7 +280,17 @@
       2025,
       2026
     ],
-    "evidence_level": "historical_case"
+    "evidence_level": "historical_case",
+    "department_routing": [
+      {
+        "department": "위생과",
+        "condition": "주류 판매업소 대상 단속(#58/#70 표본: '미성년자 주류판매 신고')"
+      },
+      {
+        "department": "문화관광체육과",
+        "condition": "노래방 등 유흥·오락시설 청소년 출입 단속(#74 표본: '청소년 출입 적발', '노래방 미성년자 취업 적발')"
+      }
+    ]
   },
   {
     "type": "화물차 등 밤샘주차 단속 요청",
@@ -356,6 +360,24 @@
     ],
     "review_result": "approved",
     "reviewer_note": "2개 후보(#41,73) 병합",
+    "source_years": [
+      2024,
+      2025,
+      2026
+    ],
+    "evidence_level": "historical_case"
+  },
+  {
+    "type": "제설 작업 요청",
+    "candidate_count": 31,
+    "merged_candidate_ids": [
+      37
+    ],
+    "main_departments": [
+      "건설과"
+    ],
+    "review_result": "approved",
+    "reviewer_note": "단독 후보",
     "source_years": [
       2024,
       2025,

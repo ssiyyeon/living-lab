@@ -37,43 +37,451 @@ pages = {p["page"]: p for p in raw["pages"]}
 assert raw["total_pages"] == 85
 
 # ---------------------------------------------------------------------------
-# 개인정보 스크러빙 (1차 버전과 동일한 규칙)
+# 개인정보 스크러빙 (3차 버전)
+#
+# [1차 버전의 버그] 이름과 전화번호가 "같은 줄"에 있을 때만 이름을 마스킹했는데,
+# pdfplumber가 표를 일반 텍스트로 풀면 셀이 줄바꿈으로 쪼개져서
+#   042)611-2485
+#   박종필
+#   010-9437-7140
+# 처럼 이름이 전화번호와 다른 줄에 오는 경우가 훨씬 많았다. 이 경우 이름이 전혀
+# 마스킹되지 않고 그대로 새고 있었다(육안 재검수 중 사용자가 34페이지 "비상연락망"
+# 표에서 16명의 실명이 그대로 노출된 걸 발견). tables_by_page(구조화된 표, 행 단위
+# 검사)는 원래도 정상 마스킹되고 있었으나 content_by_page(일반 텍스트, 같은 표 내용을
+# 다시 담고 있음)에는 이 버그가 있었음 -> 검색엔진이 content_by_page를 그대로
+# 색인하므로 실사용 노출 위험이 있었음.
+#
+# [2차 버전의 버그] 위를 고친 뒤에도 "노진용(2804 / 010-...)"(이름 바로 뒤에 괄호),
+# "정용길(공동모금회) [마스킹]"(이름+주석 뒤에 마스킹 마커), "박재현 팀장 010-..."
+# (이름과 마스킹 사이에 직급 단어가 낀 경우) 같은 변형 패턴에서 여전히 실명이 샜다
+# (사용자가 26페이지 발췌본에서 "구청장 전번", "김보미" 등 추가로 직접 발견).
+#
+# [최종 수정] 아래 5개 규칙을 순서대로 적용한다.
+#  ① 휴대전화(모든 줄) 마스킹
+#  ② "구청장"/"부구청장"/"비서실장"/"비서관"처럼 특정 1인을 가리키는 직책과 같은
+#     줄에 있는 유선번호는(부서 공용 내선번호와 달리 개인 직통번호로 보고) 마스킹
+#  ③ "이름(부가정보)" 패턴 - 괄호 안 또는 괄호 직후 근처에 연락처 흔적이 있을 때만
+#     이름을 마스킹(괄호 안에 유선번호가 있으면 그것도 같이 마스킹)
+#  ④ 이름이 전화번호와 다른 줄에 있거나("표가 텍스트로 풀리며 줄바꿈"), 부서명
+#     뒤에 붙어있는 경우("건설과 전기팀 박영호") - 앞뒤 줄에 연락처 흔적이 있으면 마스킹
+#  ⑤ "박재현 팀장 [마스킹]"처럼 이름과 마스킹 마커 사이에 직급 단어가 끼어있는
+#     경우 - 마커 바로 앞의 좁은 범위만 역방향으로 훑어서 마스킹(범위를 최소화해
+#     무관한 문장이 오탐되는 걸 방지)
+# 마스킹 방식은 "○○○"(전체 삭제) 대신 가운데 글자만 가리는 방식 사용(성씨·부서
+# 맥락은 유지, 요구사항 검수 피드백 반영).
 # ---------------------------------------------------------------------------
 MOBILE_RE = re.compile(r"01[016789]-?\d{3,4}-?\d{4}")
 LOCAL_WITH_MOBILE_RE = re.compile(r"\d{2,4}-\d{3,4}\((01[016789]-?\d{3,4}-?\d{4})\)")
+LANDLINE_RE = re.compile(r"\d{2,4}\)\d{3,4}-\d{3,4}|(?<!\d)\d{2,4}-\d{3,4}-\d{4}(?!\d)")
+SINGLE_PERSON_TITLES = ("구청장", "부구청장", "비서실장", "비서관")
+NAME_LINE_RE = re.compile(r"^[가-힣]{2,4}$")
+TRAILING_NAME_RE = re.compile(r"(?:^|[\s])([가-힣]{2,4})$")
+ORG_SUFFIX_RE = re.compile(r"(과|실|팀|국|장|관|부|처|청|회|단|본|동)$")  # 이걸로 끝나면 부서/직책/지명일 확률이 높음
+JOB_TITLE_WORDS = {"팀장", "주무관", "과장", "국장", "계장", "반장", "사무관", "주사", "실장"}
+NAME_STOPWORDS = {
+    "담당부서", "성명", "연락처", "수행비서", "당직사령", "상황근무자", "재난안전상황실", "비서관", "담당자",
+    "통보", "작성", "보고", "결정", "전파", "복구", "가동", "안내", "협조", "요청", "파악", "조치", "연락",
+    "이용", "설치", "확인", "전송", "처리", "완료", "진행", "준비", "점검", "시행", "적용", "운영", "관리",
+    "지원", "제공", "실시", "확대", "축소", "종료", "시작", "상황파악", "현장확인", "즉시", "긴급",
+    "유선보고", "처리방법", "답변",
+    # 크로스필터 재검증(3글자 이상 한글은 전부 이름 의심 → 마커/표 근접 등으로 교차검증)
+    # 중 "마커 바로 앞 단어는 이름"이라는 근접 휴리스틱이 실제로는 이름이 아닌 4글자
+    # 안팎의 재난유형·업무 분류어를 붙잡아 마스킹하던 구체 사례들. 표(redact_table)는
+    # '성명' 헤더 컬럼으로 위치를 제한해서 해결했지만, 같은 내용이 흐르는 텍스트
+    # (content_by_page)에도 중복 추출되어 있어 거기서는 위치 정보가 없어 위치 기반으로
+    # 못 거른다 - 그래서 이 표는 실제로 발견된 오탐 단어를 하나씩 불용어로 추가한다.
+    "대형사고", "유출사고", "대형화재", "등록바람", "동물병원", "전달사항", "인적사고",
+    "자연재난", "사회재난", "비고", "방법", "소음", "먼지", "전역", "발송바람", "숙박시설",
+    # "*(먼지)이연주 / 611-2352(010-...)"처럼 "(카테고리)이름 / 번호" 구조에서, 지역번호+
+    # 휴대폰이 하나의 마커로 합쳐지며 우연히 이름과 가까워져 "(먼지)"까지 이름으로 오인된
+    # 사례(자매 단어 "소음"은 이미 등록돼 있었는데 "먼지"는 누락돼 있었음 - 육안 재검수로 발견).
+    # "투투모텔"/"초원모텔"처럼 정확히 4글자인 숙박시설명이 NAME_PAREN_RE의 {2,4} 범위에
+    # 꼭 맞아떨어져서 이름으로 오인된 사례(5글자인 "상아장모텔"은 범위를 넘어가 우연히
+    # 안전했음 - 글자 수 우연으로 결과가 갈리는 건 근본적으로 불안정하므로 구체 단어를 등록)
+    "투투모텔", "초원모텔",
+}
+# "펫레스규 (이진호, [마스킹])"처럼 앞 단어와 "(" 사이에 공백이 하나 끼는 표기도 있어서
+# \s? 로 공백 0~1개를 허용한다(엄격하게 붙어있는 경우만 잡으면 이 변형에서 괄호 안쪽
+# 이름 검사 자체가 실행되지 않아 그대로 샌 사례를 발견함).
+NAME_PAREN_RE = re.compile(r"(?<![가-힣])([가-힣]{2,4})\s?\(([^)]{0,40})\)")
+# "박민호(1992.01.30.)"처럼 이름 뒤 생년월일이 붙는 경우(노숙인/여비 상습수령자 명단 등에서
+# 발견 - 전화번호보다 훨씬 민감한 개인식별정보라 별도 패턴으로 잡는다)
+BIRTHDATE_RE = re.compile(r"(19|20)\d{2}\.\s?\d{1,2}\.\s?\d{1,2}\.?")
+ISOLATED_HANGUL_RE = re.compile(r"(?<![가-힣])[가-힣]{2,4}(?![가-힣])(?!\d)")
+# NAME_PAREN_RE는 "(" 바로 앞이 2~4자 한글일 때만 매칭되는데, "야생생물관리협회(민학기,
+# 010-...)"나 "재해구호담당자(사회돌봄과 김영두)"처럼 "(" 앞이 5자 이상 이어지는 기관명/
+# 직책명이면 애초에 매칭 대상이 아니라서 안쪽의 진짜 이름을 검사조차 못 하고 그대로 샌
+# 사례를 육안 재검수로 발견했다(요구사항: search 색인용 텍스트에 실명이 남아있으면 안 됨).
+# ANY_PAREN_RE는 "(" 앞 글자 수 제한 없이 모든 괄호를 잡아서, 괄호 "안쪽"의 선두/후미
+# 이름 패턴만 별도로 검사한다(괄호 앞 단어는 보지 않으므로 길이 제한이 문제가 안 됨).
+ANY_PAREN_RE = re.compile(r"\(([^)]{0,60})\)")
+MARKER = "[개인 연락처 비공개]"
 contacts_found = []
+identified_names_by_page = {}  # {page_num: {원본이름, ...}} - 연락처 근거로 한 번 식별된 이름은
+# 같은 페이지 안에서 연락처 없이 또 나와도(예: 각주에 이름만 다시 언급) 마스킹하기 위해 기록
 
 
-def redact_line(line, page_num):
+def _remember_name(name, page_num):
+    identified_names_by_page.setdefault(page_num, set()).add(name)
+
+
+def mask_name(name):
+    """이름을 가운데 글자만 가려서 마스킹(예: 박문용 -> 박*용, 김보 -> 김*)."""
+    name = name.strip()
+    if len(name) <= 1:
+        return name
+    if len(name) == 2:
+        return name[0] + "*"
+    return name[0] + "*" * (len(name) - 2) + name[-1]
+
+
+def _is_name_like(tok):
+    return tok not in NAME_STOPWORDS and not ORG_SUFFIX_RE.search(tok)
+
+
+def _mask_mobiles_in_line(line, page_num):
     original = line
     redacted = line
     for m in LOCAL_WITH_MOBILE_RE.finditer(original):
         contacts_found.append({"page": page_num, "raw_line": original, "matched": m.group(0)})
-        redacted = redacted.replace(m.group(0), "[개인 연락처 비공개]")
+        redacted = redacted.replace(m.group(0), MARKER)
     for m in MOBILE_RE.finditer(redacted):
         contacts_found.append({"page": page_num, "raw_line": original, "matched": m.group(0)})
-    redacted = MOBILE_RE.sub("[개인 연락처 비공개]", redacted)
-    if "[개인 연락처 비공개]" in redacted and redacted != original:
-        redacted = re.sub(r"[가-힣]{2,4}(?=\s*[/\(]?\s*\[개인 연락처 비공개\])", "○○○", redacted)
+    redacted = MOBILE_RE.sub(MARKER, redacted)
     return redacted
 
 
+def _mask_title_landlines_in_line(line, page_num):
+    if not any(t in line for t in SINGLE_PERSON_TITLES):
+        return line
+
+    def _sub(m):
+        contacts_found.append({"page": page_num, "raw_line": line, "matched": m.group(0)})
+        return MARKER
+
+    return LANDLINE_RE.sub(_sub, line)
+
+
+def _mask_name_paren(line, page_num):
+    """'이름(부가정보)' 패턴: 괄호 안 또는 괄호 직후 근처에 연락처 흔적이 있을 때만
+    이름을 마스킹한다. 괄호 안에 유선번호가 있으면 그것도 같이 마스킹."""
+
+    def _sub(m):
+        name, inner = m.group(1), m.group(2)
+        # 괄호 "안쪽"이 "이름 / 부가정보" 또는 "이름, 부가정보" 형태면, 바깥쪽 name이
+        # 이름처럼 생겼든 아니든(업체명 등도 이름처럼 오인될 수 있음) 상관없이 먼저 이
+        # 안쪽 이름부터 확인한다. 순서를 바꾼 이유: "레스큐(이진호, [마스킹])"에서
+        # "레스큐"가 이름 판정 규칙을 통과해버려서(조직 접미사로 안 끝남) 바깥쪽만
+        # 마스킹되고 정작 안쪽의 진짜 이름 "이진호"는 검사조차 안 되고 그대로 샌 사례를
+        # 크로스필터 재검증으로 발견함 - "구조담당자(김명덕 / ...)"처럼 바깥쪽이 설명어라
+        # 이름이 아닌 경우만 다루면 이런 유형(바깥쪽이 이름처럼 보이는 오탐)을 놓친다.
+        inner_m = re.match(r"^([가-힣]{2,4})\s*[/,]\s*(.*)$", inner)
+        if inner_m and _is_name_like(inner_m.group(1)):
+            inner_name, rest = inner_m.group(1), inner_m.group(2)
+            has_evidence = MARKER in rest or LANDLINE_RE.search(rest) or BIRTHDATE_RE.search(rest)
+            if has_evidence:
+                contacts_found.append({"page": page_num, "raw_line": line, "matched": m.group(0)})
+                _remember_name(inner_name, page_num)
+                new_rest = LANDLINE_RE.sub(MARKER, rest)
+                sep = inner[len(inner_m.group(1)):len(inner_m.group(1)) + (len(inner) - len(inner_m.group(1)) - len(rest))]
+                return f"{name}({mask_name(inner_name)}{sep}{new_rest})"
+        after = line[m.end(): m.end() + 20]
+        has_birthdate = bool(BIRTHDATE_RE.search(inner))
+        has_marker_or_landline = bool(MARKER in inner or LANDLINE_RE.search(inner))
+        has_evidence_inside = has_marker_or_landline or has_birthdate
+        has_evidence_after = MARKER in after
+        if not (has_evidence_inside or has_evidence_after):
+            return m.group(0)
+
+        # "이승재 동물병원(...)"처럼 실제 이름 뒤에 업체/기관명이 한 번 더 붙어 "(" 바로
+        # 앞 단어(동물병원)만 매치되고 진짜 이름(이승재)을 놓치는 경우 대응: 매치 시작
+        # 직전이 공백 하나를 사이에 둔 또 다른 이름 후보면 그것도 같이 마스킹한다.
+        before = line[max(0, m.start() - 6): m.start()]
+        pm = re.search(r"(?<![가-힣])([가-힣]{2,4}) $", before)
+        prefix_is_name = bool(pm and _is_name_like(pm.group(1)))
+        is_name = _is_name_like(name)
+
+        # "행정안전부 상황실(044-205-1540)"처럼 이름이 전혀 없는 순수 조직/부서 전화번호까지
+        # 마스킹해버린 사례를 육안 재검수로 발견했다("상황실"은 조직접미사라 이름 아님으로
+        # 정확히 판정됐지만, 그 뒤 "이름이 없어도 유선번호가 있으면 마스킹한다"는 이전 로직이
+        # 남아있어서 실제로는 마스킹돼버렸음). "이름이 근처에 확인될 때만" 마스킹하도록,
+        # 바깥쪽(name)과 앞쪽(pm) 둘 다 이름이 아니면 - 즉 이 괄호가 누구의 것인지 특정할
+        # 근거가 없으면 - 유선번호/생년월일까지 있어도 원문을 그대로 둔다(마커만 있는 경우는
+        # 예외: 마커는 이미 앞선 휴대전화 마스킹 단계를 거쳤다는 뜻이라 개인 정보일 확률이
+        # 매우 높음 - 다만 마스킹할 "이름"이 없으니 어차피 여기선 더 할 일이 없다).
+        if not (is_name or prefix_is_name):
+            return m.group(0)
+
+        contacts_found.append({"page": page_num, "raw_line": line, "matched": m.group(0)})
+        new_inner = LANDLINE_RE.sub(MARKER, inner) if LANDLINE_RE.search(inner) else inner
+        # 생년월일은 연락처보다 민감한 개인식별정보라 이름과 별도로 항상 마스킹
+        if has_birthdate:
+            new_inner = BIRTHDATE_RE.sub("[생년월일 비공개]", new_inner)
+
+        prefix = ""
+        if prefix_is_name:
+            contacts_found.append({"page": page_num, "raw_line": line, "matched": pm.group(1)})
+            _remember_name(pm.group(1), page_num)
+            prefix = mask_name(pm.group(1)) + " "
+        masked_name = mask_name(name) if is_name else name
+        if is_name:
+            _remember_name(name, page_num)
+        if prefix:
+            return (prefix, masked_name, new_inner, pm.start(1))
+        return f"{masked_name}({new_inner})"
+
+    # 위에서 튜플을 반환한 경우(이름 앞에 또 다른 이름이 붙은 경우) 그 앞부분까지
+    # 함께 치환해야 하므로 일반 re.sub 대신 직접 순회하며 조립한다.
+    out = []
+    last_end = 0
+    for m in NAME_PAREN_RE.finditer(line):
+        if m.start() < last_end:
+            continue
+        result = _sub(m)
+        if isinstance(result, tuple):
+            prefix, masked_name, new_inner, extra_start = result
+            out.append(line[last_end:extra_start])
+            out.append(f"{prefix}{masked_name}({new_inner})")
+        else:
+            out.append(line[last_end:m.start()])
+            out.append(result)
+        last_end = m.end()
+    out.append(line[last_end:])
+    return "".join(out)
+
+
+def _mask_names_inside_any_paren(text, page_num):
+    """NAME_PAREN_RE가 놓치는 두 가지 경우를 보강한다("(" 앞 글자 수 제한이 없는
+    ANY_PAREN_RE 사용, 괄호 앞쪽은 안 보고 괄호 "안쪽"만 검사하므로 안전):
+
+    (a) 괄호 안쪽 선두 이름 - "야생생물관리협회(민학기, 010-...)": "(" 바로 앞 단어가
+        8자짜리 기관명이라 NAME_PAREN_RE의 {2,4} 범위를 넘어가 아예 매칭이 안 됐다.
+    (b) 괄호 안쪽 후미 이름 - "재해구호담당자(사회돌봄과 김영두)": 이름이 괄호 맨 앞이
+        아니라 부서명 뒤에 붙어 있고, 이 괄호 자체엔 연락처 흔적이 없다(증거는 같은 줄
+        바로 뒤에 이어지는 "(042-611-2927 / [마스킹])"에 있음) - 그래서 이 괄호가 끝난
+        직후 근처(짧은 범위)에 증거가 있으면 이름으로 보고 마스킹한다.
+        범위를 "같은 줄 전체"로 잡으면 "(진잠동 일대) 야생생물관리협회(민학기, [마스킹])"
+        처럼 뒤쪽 전혀 다른 괄호의 증거 때문에 앞쪽 괄호의 "일대"(그냥 "그 지역"이라는
+        뜻)까지 이름으로 오인해서 잘못 마스킹되는 걸 실측으로 확인함 - 그래서 "이 괄호
+        직후"로 범위를 좁혔다(뒤쪽 증거만 보고, 괄호 앞쪽/훨씬 뒤쪽은 안 봄).
+    두 경우 다 이름이 실제로 개인정보 노출로 이어진 사례를 육안 재검수로 확인하고 추가함.
+    """
+
+    def _sub(m):
+        inner = m.group(1)
+
+        lead_m = re.match(r"^([가-힣]{2,4})\s*[/,]\s*(.+)$", inner)
+        if lead_m and _is_name_like(lead_m.group(1)):
+            lname, rest = lead_m.group(1), lead_m.group(2)
+            if MARKER in rest or LANDLINE_RE.search(rest) or BIRTHDATE_RE.search(rest):
+                _remember_name(lname, page_num)
+                contacts_found.append({"page": page_num, "raw_line": text, "matched": m.group(0)})
+                sep = inner[len(lname): len(inner) - len(rest)]
+                new_rest = LANDLINE_RE.sub(MARKER, rest)
+                return f"({mask_name(lname)}{sep}{new_rest})"
+
+        trail_m = re.search(r"(?:^|\s)([가-힣]{2,4})$", inner)
+        if trail_m and _is_name_like(trail_m.group(1)):
+            # BIRTHDATE_RE는 여기서는 증거로 안 쓴다 - "관내 주요공사현장 연락처(2025.8.5
+            # 기준)"처럼 일반 날짜("YYYY.M.D" 형식)에도 반응해서, 뒤에 오는 흔한 단어
+            # "기준"까지 이름으로 오인해 마스킹하는 오탐이 실제로 발생함(생년월일이 붙는
+            # 실제 사례는 전부 이름이 괄호 "맨 앞"에 오는 다른 함수(_mask_name_paren)에서
+            # 이미 처리되고, 여기(후미 이름 규칙)에는 필요 없었음).
+            local_evidence = bool(MARKER in inner or LANDLINE_RE.search(inner))
+            after = text[m.end(): m.end() + 20]
+            nearby_evidence = bool(MARKER in after or LANDLINE_RE.search(after))
+            if local_evidence or nearby_evidence:
+                tname = trail_m.group(1)
+                _remember_name(tname, page_num)
+                contacts_found.append({"page": page_num, "raw_line": text, "matched": m.group(0)})
+                new_inner = inner[: trail_m.start(1)] + mask_name(tname)
+                return f"({new_inner})"
+
+        return m.group(0)
+
+    return ANY_PAREN_RE.sub(_sub, text)
+
+
+def _mask_job_title_names(line, page_num):
+    """'박재현 팀장 [마스킹]'처럼 마커 바로 앞이 직급 단어(팀장/주무관 등)면 그 앞의
+    이름까지 한 번 더 거슬러 올라가 마스킹한다(범위를 마커 직전으로 최소화해 무관한
+    문장이 오탐되는 걸 방지)."""
+    out = line
+    search_from = 0
+    for m in list(re.finditer(re.escape(MARKER), line)):
+        window = line[search_from: m.start()]
+        toks = list(ISOLATED_HANGUL_RE.finditer(window))
+        cand = None
+        if toks:
+            last = toks[-1]
+            if last.group(0) in JOB_TITLE_WORDS and len(toks) >= 2:
+                prev = toks[-2]
+                if last.start() - prev.end() <= 2 and _is_name_like(prev.group(0)):
+                    cand = prev
+            elif _is_name_like(last.group(0)) and window[last.end():].strip() == "":
+                # 원래 "마커로부터 3글자 이내"였는데, 이러면 "디아델] ☎[마스킹]"처럼
+                # 이름이 아닌 고유명사/일반단어와 마커 사이에 문장부호·기호(]☎* 등)만 끼어
+                # 있어도 걸려버린다(교차 필터링 재검증 중 "디아델"(아파트명), "레스큐"
+                # (업체명), "소음"/"단지"/"비고" 등 실명이 아닌 단어가 다수 오탐된 걸 발견).
+                # 이름이 마커 바로 앞에 "붙어있다"고 볼 수 있는 경우는 공백만 있을 때뿐이므로,
+                # 사이에 공백 아닌 문자가 하나라도 있으면 후보에서 제외한다.
+                cand = last
+        if cand:
+            contacts_found.append({"page": page_num, "raw_line": line, "matched": cand.group(0)})
+            _remember_name(cand.group(0), page_num)
+            abs_start = search_from + cand.start()
+            abs_end = search_from + cand.end()
+            out = out[:abs_start] + mask_name(cand.group(0)) + out[abs_end:]
+        search_from = m.end()
+    return out
+
+
 def redact_text(text, page_num):
-    return "\n".join(redact_line(l, page_num) for l in text.split("\n"))
+    lines = text.split("\n")
+    lines = [_mask_title_landlines_in_line(_mask_mobiles_in_line(l, page_num), page_num) for l in lines]
+    lines = [_mask_name_paren(l, page_num) for l in lines]
+    # ANY_PAREN_RE 기반 보강 패스는 반드시 "줄 단위"로 호출한다(page_num 전체 텍스트를
+    # 합쳐서 돌리면 line_has_evidence가 페이지 전체 기준이 되어, 이 이름과 무관한 다른
+    # 문단의 괄호까지 "증거 있음"으로 오판해 광범위하게 오탐될 위험이 있음 - 실제 사고
+    # 사례("재해구호담당자(사회돌봄과 김영두)")는 같은 "줄" 안에 유선번호가 있어서
+    # 줄 단위로 좁혀도 정상적으로 잡힌다).
+    lines = [_mask_names_inside_any_paren(l, page_num) for l in lines]
+
+    # 이름이 전화번호와 다른 줄에 있는 경우(표가 텍스트로 풀리면서 줄바꿈됨) 대응.
+    # 창(window)은 바로 위/아래 1줄만 본다 - 2줄까지 보면 "경우"처럼 흔한 단어가 우연히
+    # 2줄 뒤의 무관한 마스킹 근처에 걸려서 오탐되는 걸 실측으로 확인함(예: "...경우"로
+    # 끝나는 문장이 2줄 뒤 다른 사람 이름의 마스킹된 연락처 때문에 이름으로 오인되어
+    # "경*"로 깨짐, 그리고 이게 전역 재마스킹으로 같은 페이지의 다른 "경우"까지 전부 오염시킴).
+    # 실제 표-텍스트 변환 패턴("이름"과 "연락처"가 줄바꿈만으로 분리)은 항상 바로 인접한
+    # 줄이었으므로 ±1로 좁혀도 정상 케이스는 그대로 잡힌다.
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+        if NAME_LINE_RE.match(stripped) and _is_name_like(stripped):
+            window = lines[max(0, i - 1): i] + lines[i + 1: i + 2]
+            if any(MARKER in w or LANDLINE_RE.search(w) for w in window):
+                lines[i] = mask_name(stripped)
+                _remember_name(stripped, page_num)
+                continue
+        m = TRAILING_NAME_RE.search(line)
+        if m and not NAME_LINE_RE.match(stripped) and len(stripped) <= 20:
+            tok = m.group(1)
+            if _is_name_like(tok):
+                window = lines[max(0, i - 1): i] + lines[i + 1: i + 2] + [line]
+                if any(MARKER in w or LANDLINE_RE.search(w) for w in window):
+                    lines[i] = line[: m.start(1)] + mask_name(tok)
+                    _remember_name(tok, page_num)
+
+    # 이름과 마스킹된 연락처가 같은 줄에 붙어있는 경우(예: "비서관, 수행비서 [마스킹]")
+    for i, line in enumerate(lines):
+        if MARKER not in line:
+            continue
+
+        def _sub_inline(mm):
+            token = mm.group(0)
+            if not _is_name_like(token):
+                return token
+            _remember_name(token, page_num)
+            return mask_name(token)
+
+        # (?<![가-힣]) 경계 체크 필수: 이게 없으면 "상아장모텔("처럼 5글자 단어 중간부터
+        # 4글자("아장모텔")만 잘라 매칭해버린다(단어 앞에 한글이 더 있는지 확인 안 하면
+        # 정규식이 "가장 뒤쪽에서 시작하는 유효한 2~4글자 부분열"을 아무거나 찾아버림 -
+        # 크로스필터 재검증으로 "상아**텔" 오염을 발견하고서야 이 함수엔 경계 체크가 아예
+        # 없었다는 걸 확인함. 같은 파일의 다른 이름 탐지 정규식들은 전부 이 체크가 있었음).
+        lines[i] = re.sub(r"(?<![가-힣])[가-힣]{2,4}(?=\s*[/\(]?\s*\[개인 연락처 비공개\])", _sub_inline, line)
+
+    # 마커가 다음 줄로 넘어가는 경우도 있어("이름 직급\n[마스킹]") 줄 단위가 아니라
+    # 합쳐진 전체 텍스트에 대해 마지막으로 한 번 더 훑는다(줄바꿈은 한글이 아니므로
+    # ISOLATED_HANGUL_RE의 경계 판정에 영향 없음).
+    result = _mask_job_title_names("\n".join(lines), page_num)
+
+    # 같은 페이지 안에서 이미 연락처 근거로 식별된 이름이 다른 곳(각주 등, 연락처 없이
+    # 이름만 다시 언급되는 경우)에 마스킹 없이 또 나오면 그것도 마스킹한다.
+    # 예: "이승재 동물병원([마스킹])"에서 식별된 "이승재"가 바로 아래 각주
+    # "*이승재 동물병원: 야간, 휴일진료 가능..."에 연락처 근거 없이 또 나오는 경우.
+    for name in identified_names_by_page.get(page_num, set()):
+        result = re.sub(rf"(?<![가-힣]){re.escape(name)}(?![가-힣])", mask_name(name), result)
+    return result
+
+
+CELL_NAME_LEAD_RE = re.compile(r"^([가-힣]{2,4})((?:\([^)]{0,40}\))?)$")
+# 위 정규식은 반드시 "이름" 또는 "이름(설명)"이 셀 전체와 정확히 일치할 때만 매칭한다
+# (문자열 끝 $ 고정). 처음에 (.*)로 뒤를 열어뒀더니 "녹지산림과\n도시숲팀"처럼 긴
+# 단어/구절이 든 셀에서 앞 2~4글자만("녹지산림") 잘려 이름처럼 오인되는 문제가
+# 광범위하게 발생했다(부서명·도로명·학교명·업체명 다수 오염 - 교차 필터링 재검증으로 발견).
+# "셀 전체가 정확히 이름 모양"이라는 조건으로 좁히면 이런 긴 텍스트는 애초에 $ 앵커에서
+# 매칭 실패하므로 안전하다.
+
+
+NAME_HEADER_RE = re.compile(r"^성\s*명$|^이\s*름$")
+
+
+def _find_name_column(table):
+    """표의 헤더 행에서 '성명'/'이름' 컬럼의 위치(인덱스)를 찾는다.
+
+    처음에는 "행에 연락처 증거가 있으면 그 행의 모든 셀 중 이름처럼 생긴 걸 마스킹"하는
+    식으로 했더니, "도로명"(주소 표기 방식을 나타내는 표 값), "재난유형" 컬럼의
+    "자연재난"/"인적사고" 같은 분류어, "비고" 헤더 자체까지 전부 이름으로 오인해서
+    마스킹해버리는 광범위한 오탐이 발생했다(크로스필터 재검증으로 발견). 이런 값은 전부
+    이름 컬럼이 아니라 "주소 종류"/"분류"/"비고" 등 다른 컬럼에 있었다는 공통점이 있다.
+    그래서 셀 내용만으로 이름 여부를 추측하는 대신, 헤더에서 실제 "성명"/"이름" 컬럼을
+    먼저 찾고 그 컬럼에만 이름 마스킹을 적용하는 방식으로 바꿨다. 헤더를 못 찾으면(성명
+    컬럼이 아예 없는 표 - 예: 업체 연락처 목록) None을 반환해서 그 표는 셀 추측 마스킹을
+    아예 안 하도록 한다(원문 훼손보다 놓치는 쪽이 낫다는 원칙 - 놓친 이름은
+    PII_REVIEW_26PAGES.md 육안 재검수로 잡는다)."""
+    for row in table[:3]:  # 헤더는 보통 표의 처음 몇 줄 안에 있음
+        for idx, cell in enumerate(row):
+            if isinstance(cell, str) and NAME_HEADER_RE.match(cell.strip()):
+                return idx
+    return None
 
 
 def redact_table(table, page_num):
+    """표는 pdfplumber가 셀 단위로 쪼개서 주는데, '이름'과 '연락처'가 같은 행(row)의
+    서로 다른 셀에 나뉘어 들어가는 경우가 많다(예: [None, '백병희(긴급복지지원)',
+    '[개인 연락처 비공개]'] - 이름 셀과 마커 셀이 다름). 셀 단위로만 "이 셀 안에 증거가
+    있는가"를 보면 이런 경우를 놓친다(실제로 3차 수정 이후에도 육안 재검수 없이 크로스필터
+    스캔을 돌려서 이 패턴으로 샌 이름을 다시 발견함). 그래서 먼저 각 셀을 개별적으로
+    마스킹한 뒤, "행 전체에 증거(마커/전화번호 패턴)가 있는가"를 다시 판단하고, 있으면
+    표에서 찾은 '성명' 컬럼의 셀에 한해서만 "이름(부가정보)" 또는 "이름" 선두 패턴을
+    추가로 마스킹한다(컬럼 제한 없이 하면 위 _find_name_column 설명대로 광범위 오탐)."""
     if not table:
         return table
+    name_col = _find_name_column(table)
     redacted_rows = []
     for row in table:
-        new_row = [redact_line(cell, page_num) if isinstance(cell, str) else cell for cell in row]
-        row_has_redacted_phone = any(isinstance(c, str) and "[개인 연락처 비공개]" in c for c in new_row)
-        if row_has_redacted_phone:
-            new_row = [
-                "○○○" if (isinstance(c, str) and re.fullmatch(r"[가-힣]{2,4}", c.strip())) else c
-                for c in new_row
-            ]
+        new_row = []
+        for cell in row:
+            if isinstance(cell, str):
+                cell = _mask_title_landlines_in_line(_mask_mobiles_in_line(cell, page_num), page_num)
+                cell = _mask_name_paren(cell, page_num)
+            new_row.append(cell)
+        row_has_evidence = any(
+            isinstance(c, str) and (MARKER in c or LANDLINE_RE.search(c) or BIRTHDATE_RE.search(c))
+            for c in new_row
+        )
+        if row_has_evidence and name_col is not None and name_col < len(new_row):
+            def _mask_cell(c):
+                if not isinstance(c, str):
+                    return c
+                stripped = c.strip()
+                if MARKER in stripped or not stripped:
+                    return c
+                if re.fullmatch(r"[가-힣]{2,4}", stripped):
+                    if not _is_name_like(stripped):
+                        return c
+                    _remember_name(stripped, page_num)
+                    return mask_name(stripped)
+                # "백병희(긴급복지지원)"처럼 이름 뒤에 부가정보 괄호가 붙은 셀 - 마커가
+                # 다른 셀에 있어서 이 셀 안에서는 증거를 못 찾지만, 행 전체엔 증거가
+                # 있으므로(row_has_evidence) 선두 이름은 마스킹한다.
+                m = CELL_NAME_LEAD_RE.match(stripped)
+                if m and _is_name_like(m.group(1)):
+                    _remember_name(m.group(1), page_num)
+                    contacts_found.append({"page": page_num, "raw_line": c, "matched": m.group(1)})
+                    return mask_name(m.group(1)) + m.group(2)
+                return c
+            new_row[name_col] = _mask_cell(new_row[name_col])
         redacted_rows.append(new_row)
     return redacted_rows
 
