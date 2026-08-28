@@ -1,0 +1,11 @@
+# scripts/01~05(데이터 파트) + search/(검색 엔진) 재실행에 필요한 패키지.
+# 설치: python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+pdfplumber==0.11.10
+pandas==3.0.5
+openpyxl==3.1.5
+scikit-learn==1.9.0
+
+# search/ (하이브리드 검색: BM25 + 임베딩. 임베딩은 v1에서 비활성화 상태지만
+# 인덱스 빌드 시 sentence-transformers로 임베딩을 계산/캐시는 해둠 - search/engine.py 주석 참고)
+rank_bm25==0.2.2
+sentence-transformers==5.7.0

@@ -1,12 +1,18 @@
-# Python virtual environment
-.venv/
+private/
+data/raw/
 
-# Python cache
+# 안전장치: 원본 PDF와 Excel 파일은 저장소에 포함하지 않습니다.
+/*.pdf
+/당직민원 목록*.xlsx
+
+# OS / editor
+.DS_Store
+.vscode/
+
+# Python
+.venv/
 __pycache__/
 *.pyc
-
-# VS Code
-.vscode/
 
 # Search index cache
 search/index/
