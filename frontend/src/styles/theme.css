@@ -1,0 +1,49 @@
+:root {
+  --font-size: 14px;
+  --font-family: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --font-mono: "Consolas", monospace;
+
+  --background: #f4f5f7;
+  --foreground: #1c1c1e;
+  --card: #ffffff;
+  --card-foreground: #1c1c1e;
+  --muted: #e5e5ea;
+  --muted-foreground: #8a8a8e;
+  --border: #e0e0e3;
+  --ring: #aeaeb2;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c1c1e;
+  --sidebar-border: #e8e8ea;
+  --brand-green: #1d58cc;
+  --brand-green-light: #eaf0fb;
+  --brand-green-dark: #1440a0;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    font-size: var(--font-size);
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-family);
+  }
+}
