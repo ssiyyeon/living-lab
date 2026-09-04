@@ -29,6 +29,8 @@ function toSearchResult(result: ApiSearchResult, tier: string): SearchResult {
     department,
     departments: result.departments,
     paragraphSummary: result.paragraphSummary,
+    keyActions: result.keyActions,
+    originalText: result.originalText,
     guidance: result.guidance,
     note: result.note,
     updatedAt: result.updatedAt,

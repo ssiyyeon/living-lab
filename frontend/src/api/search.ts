@@ -13,6 +13,8 @@ export interface ApiSearchResult {
   department: string;
   departments: string[];
   paragraphSummary: string;
+  keyActions: string[];
+  originalText: string;
   guidance: string;
   note: string;
   updatedAt: string;

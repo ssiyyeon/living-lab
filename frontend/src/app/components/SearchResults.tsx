@@ -2,13 +2,14 @@ import { useMemo, useState } from "react";
 import {
   AlertCircle,
   AlignLeft,
+  BookOpen,
   Building2,
   ChevronDown,
   ChevronUp,
   ExternalLink,
   FileText,
   Info,
-  MapPin,
+  ListChecks,
   Route,
   Tag,
 } from "lucide-react";
@@ -24,6 +25,8 @@ export interface SearchResult {
   department: string;
   departments: string[];
   paragraphSummary: string;
+  keyActions: string[];
+  originalText: string;
   guidance: string;
   note: string;
   updatedAt: string;
@@ -149,12 +152,16 @@ export function SearchResults({ results, notice, relevanceNotice }: SearchResult
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <FileText className="w-4 h-4 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
-                        <p style={{ color: "var(--foreground)", fontSize: "16px", fontWeight: 700, lineHeight: 1.4 }}>
-                          {result.documentName}
-                        </p>
+                    <div className="flex items-start justify-between gap-4 mb-5">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+                          <p style={{ fontSize: "12px" }}>{result.documentName}</p>
+                          {result.category && <span style={{ fontSize: "11px" }}>· {result.category}</span>}
+                        </div>
+                        <h2 style={{ color: "var(--foreground)", fontSize: "19px", fontWeight: 800, lineHeight: 1.45 }}>
+                          {result.civilType}
+                        </h2>
                       </div>
                       <span
                         className="flex-shrink-0 px-3 py-1"
@@ -164,28 +171,51 @@ export function SearchResults({ results, notice, relevanceNotice }: SearchResult
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-3 mb-4">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1" style={{ borderRadius: "8px", background: "var(--muted)", fontSize: "12px", color: "var(--muted-foreground)" }}>
-                        <Tag className="w-3 h-3" />
-                        {result.civilType}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1" style={{ borderRadius: "8px", background: "var(--muted)", fontSize: "12px", color: "var(--muted-foreground)" }}>
-                        <Building2 className="w-3 h-3" />
-                        {result.department}
-                      </span>
-                      {result.page !== null && (
-                        <span className="inline-flex items-center gap-1.5" style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                          <MapPin className="w-3 h-3" />
-                          {result.page}쪽
-                        </span>
-                      )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                      <div className="p-3.5" style={{ borderRadius: "12px", background: "var(--background)" }}>
+                        <div className="flex items-center gap-1.5 mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          <Building2 className="w-3.5 h-3.5" />
+                          <span style={{ fontSize: "11px", fontWeight: 700 }}>담당 부서</span>
+                        </div>
+                        <p style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 650, lineHeight: 1.6 }}>
+                          {result.department}
+                        </p>
+                      </div>
+                      <div className="p-3.5" style={{ borderRadius: "12px", background: "var(--background)" }}>
+                        <div className="flex items-center gap-1.5 mb-1.5" style={{ color: "var(--muted-foreground)" }}>
+                          <BookOpen className="w-3.5 h-3.5" />
+                          <span style={{ fontSize: "11px", fontWeight: 700 }}>근거</span>
+                        </div>
+                        <p style={{ color: "var(--foreground)", fontSize: "12px", lineHeight: 1.6 }}>
+                          {result.sourceReference || (result.page !== null ? `${result.documentName} · ${result.page}쪽` : result.documentName)}
+                        </p>
+                      </div>
                     </div>
 
-                    <div className="flex gap-3 mb-4 p-4" style={{ borderRadius: "12px", background: "var(--background)" }}>
-                      <AlignLeft className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--muted-foreground)", opacity: 0.5 }} />
-                      <p className="whitespace-pre-line" style={{ color: "var(--card-foreground)", fontSize: "13px", lineHeight: 1.8 }}>
-                        {result.paragraphSummary || "관련 문단 정보가 없습니다."}
+                    <div className="mb-4 p-4" style={{ borderRadius: "12px", background: "var(--brand-green-light)" }}>
+                      <div className="flex items-center gap-2 mb-2" style={{ color: "var(--brand-green-dark)" }}>
+                        <AlignLeft className="w-4 h-4" />
+                        <p style={{ fontSize: "12px", fontWeight: 800 }}>핵심 내용</p>
+                      </div>
+                      <p style={{ color: "var(--brand-green-dark)", fontSize: "13px", lineHeight: 1.75 }}>
+                        {result.paragraphSummary || "관련 내용을 확인해 주세요."}
                       </p>
+                      {result.keyActions.length > 0 && (
+                        <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(22, 101, 52, 0.14)" }}>
+                          <div className="flex items-center gap-2 mb-2" style={{ color: "var(--brand-green-dark)" }}>
+                            <ListChecks className="w-4 h-4" />
+                            <p style={{ fontSize: "12px", fontWeight: 800 }}>핵심 대응</p>
+                          </div>
+                          <ul className="space-y-1.5">
+                            {result.keyActions.map((action) => (
+                              <li key={action} className="flex items-start gap-2" style={{ color: "var(--brand-green-dark)", fontSize: "13px", lineHeight: 1.65 }}>
+                                <span aria-hidden="true" style={{ fontWeight: 800 }}>•</span>
+                                <span>{action}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex flex-wrap gap-1.5 mb-4">
@@ -198,6 +228,17 @@ export function SearchResults({ results, notice, relevanceNotice }: SearchResult
 
                     {isExpanded && (
                       <div className="space-y-3 mb-4">
+                        {result.originalText && (
+                          <div className="p-5" style={{ borderRadius: "12px", background: "#F7F8F7", border: "1px solid var(--border)" }}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <BookOpen className="w-4 h-4" style={{ color: "var(--brand-green)" }} />
+                              <p style={{ color: "var(--foreground)", fontSize: "13px", fontWeight: 800 }}>상세 원문</p>
+                            </div>
+                            <p className="whitespace-pre-wrap" style={{ color: "var(--card-foreground)", fontSize: "12px", lineHeight: 1.85 }}>
+                              {result.originalText}
+                            </p>
+                          </div>
+                        )}
                         {result.note && (
                           <div className="p-4 flex gap-3" style={{ borderRadius: "12px", background: "#FBF9F5", borderLeft: "3px solid #C8A96E" }}>
                             <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#A07840" }} />
@@ -251,11 +292,14 @@ export function SearchResults({ results, notice, relevanceNotice }: SearchResult
                     )}
 
                     <button
+                      aria-expanded={isExpanded}
                       onClick={() => setExpandedId(isExpanded ? null : result.id)}
                       className="inline-flex items-center gap-1.5 transition-colors duration-150"
                       style={{ color: "var(--muted-foreground)", fontSize: "13px" }}
                     >
-                      {isExpanded ? <><ChevronUp className="w-4 h-4" />접기</> : <><ChevronDown className="w-4 h-4" />상세 정보 보기</>}
+                      {isExpanded
+                        ? <><ChevronUp className="w-4 h-4" />{result.originalText ? "상세 원문 닫기" : "상세 정보 닫기"}</>
+                        : <><ChevronDown className="w-4 h-4" />{result.originalText ? "상세 원문 보기" : "상세 정보 보기"}</>}
                     </button>
                   </div>
                 </div>

@@ -386,9 +386,15 @@ class SearchService:
             [],
         )
 
-        excerpt, matched_page = self._best_excerpt(
+        _, matched_page = self._best_excerpt(
             query=query,
             page_items=content_by_page,
+        )
+
+        original_text = "\n\n".join(
+            str(page.get("text", "")).strip()
+            for page in content_by_page
+            if str(page.get("text", "")).strip()
         )
 
         departments = self._string_list(
@@ -427,12 +433,16 @@ class SearchService:
             ],
         )
 
-        civil_type = (
+        civil_type = self._display_title(
             item.get("title")
             or raw_result.get(
                 "title",
                 "",
             )
+        )
+
+        key_actions = self._extract_key_actions(
+            original_text
         )
 
         if breadcrumb:
@@ -467,13 +477,15 @@ class SearchService:
                 departments
             ),
             "departments": departments,
-            "paragraphSummary": (
-                excerpt
-                or "관련 원문 내용을 확인해 주세요."
+            "paragraphSummary": self._manual_summary(
+                civil_type=civil_type,
+                departments=departments,
             ),
+            "keyActions": key_actions,
+            "originalText": original_text,
             "guidance": (
-                "공식 당직 매뉴얼에서 관련 근거가 확인되었습니다. "
-                "아래 관련 문단과 원문 페이지를 기준으로 대응해 주세요."
+                "상황과 현장 상태를 확인한 뒤 관련 부서에 즉시 연락하고, "
+                "상세 원문의 절차에 따라 대응해 주세요."
             ),
             "note": " · ".join(
                 note_parts
@@ -552,7 +564,7 @@ class SearchService:
                 )
                 or "당직 근무요령 및 상황별 매뉴얼"
             ),
-            "civilType": (
+            "civilType": self._display_title(
                 item.get("section")
                 or raw_result.get(
                     "title",
@@ -562,9 +574,13 @@ class SearchService:
             "department": "담당 부서 확인 필요",
             "departments": [],
             "paragraphSummary": (
-                excerpt
+                self._truncate(excerpt, 180)
                 or "관련 원문 내용을 확인해 주세요."
             ),
+            "keyActions": self._extract_key_actions(
+                content
+            ),
+            "originalText": content,
             "guidance": (
                 "공식 당직 매뉴얼의 관련 문단입니다. "
                 "원문 페이지를 확인한 뒤 문서에 적힌 절차를 따라 주세요."
@@ -736,6 +752,8 @@ class SearchService:
             ),
             "departments": departments,
             "paragraphSummary": paragraph,
+            "keyActions": [],
+            "originalText": "",
             "guidance": (
                 "과거 처리 사례를 참고용으로 제공합니다. "
                 "공식 매뉴얼 근거가 아니므로 실제 대응 전 담당 부서를 확인해 주세요."
@@ -812,6 +830,8 @@ class SearchService:
             "paragraphSummary": (
                 "상세 원문 데이터 확인이 필요합니다."
             ),
+            "keyActions": [],
+            "originalText": "",
             "guidance": (
                 "원문 근거를 확인해 주세요."
             ),
@@ -834,6 +854,188 @@ class SearchService:
             "candidateCount": None,
             "departmentRouting": [],
         }
+
+    def _display_title(
+        self,
+        value: Any,
+    ) -> str:
+
+        title = self._clean_text(
+            str(value or "")
+        )
+
+        return re.sub(
+            r"(?<!즉)시(?=\s)",
+            " 시",
+            title,
+        )
+
+    def _manual_summary(
+        self,
+        civil_type: str,
+        departments: list[str],
+    ) -> str:
+
+        topic = re.sub(
+            r"\s*조치\s*요령$",
+            "",
+            civil_type,
+        ).strip()
+
+        department_text = self._department_text(
+            departments
+        )
+
+        if departments:
+            return (
+                f"{topic} 관련 상황을 접수하면 {department_text}에 즉시 연락하고, "
+                "현장 확인과 필요한 조치를 진행합니다."
+            )
+
+        return (
+            f"{topic} 관련 상황을 접수하면 공식 매뉴얼의 "
+            "현장 확인 및 보고 절차에 따라 대응합니다."
+        )
+
+    def _extract_key_actions(
+        self,
+        text: str,
+        limit: int = 4,
+    ) -> list[str]:
+
+        if not text:
+            return []
+
+        weighted_terms = {
+            "점검 및 복구": 9,
+            "배수로 준설": 9,
+            "즉시 통보": 8,
+            "처리 요청": 7,
+            "현장 확인": 6,
+            "현장확인": 6,
+            "상황 보고": 5,
+            "상황보고": 5,
+            "전파": 4,
+            "가동": 3,
+            "접수": 2,
+        }
+
+        excluded_terms = (
+            "비상연락망",
+            "개인 연락처",
+            "담당부서 성명 연락처",
+            "보고계통",
+            "보고내용",
+        )
+
+        candidates: list[tuple[int, int, str]] = []
+
+        for order, raw_line in enumerate(
+            text.splitlines()
+        ):
+            line = self._clean_action_line(
+                raw_line
+            )
+
+            if (
+                len(line) < 4
+                or len(line) > 110
+                or line.startswith(("등 ", "및 "))
+                or any(
+                    term in line
+                    for term in excluded_terms
+                )
+            ):
+                continue
+
+            score = sum(
+                weight
+                for term, weight in weighted_terms.items()
+                if term in line
+            )
+
+            if score > 0:
+                candidates.append(
+                    (score, order, line)
+                )
+
+        selected: list[tuple[int, str]] = []
+        seen: set[str] = set()
+
+        for _, order, line in sorted(
+            candidates,
+            key=lambda item: (
+                -item[0],
+                item[1],
+            ),
+        ):
+            normalized = re.sub(
+                r"\W+",
+                "",
+                line,
+            )
+
+            if normalized in seen:
+                continue
+
+            seen.add(normalized)
+            selected.append(
+                (order, line)
+            )
+
+            if len(selected) == limit:
+                break
+
+        return [
+            line
+            for _, line in sorted(selected)
+        ]
+
+    def _clean_action_line(
+        self,
+        value: str,
+    ) -> str:
+
+        line = self._clean_text(value)
+        line = re.sub(
+            r"^[\d]+[.)]\s*",
+            "",
+            line,
+        )
+        line = re.sub(
+            r"^[⦁•·▶▷⇒→\-]+\s*",
+            "",
+            line,
+        )
+        line = re.sub(
+            r"\(+\d+\)+",
+            "",
+            line,
+        )
+        line = re.sub(
+            r"^([가-힣]+팀)\)\s*",
+            r"\1: ",
+            line,
+        )
+        line = line.replace(
+            "당직사령에 상황보고",
+            "당직사령에게 상황 보고",
+        )
+        line = line.replace(
+            "현장확인",
+            "현장 확인",
+        )
+        line = line.replace(
+            "상황보고",
+            "상황 보고",
+        )
+        line = re.sub(
+            r"(?<!즉)시(?=\s|$)",
+            " 시",
+            line,
+        )
+
+        return line.strip()
 
     def _best_excerpt(
         self,

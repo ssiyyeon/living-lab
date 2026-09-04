@@ -39,6 +39,8 @@ class SearchResult(BaseModel):
     departments: List[str] = Field(default_factory=list)
 
     paragraphSummary: str
+    keyActions: List[str] = Field(default_factory=list)
+    originalText: str = ""
     guidance: str
     note: str
 
