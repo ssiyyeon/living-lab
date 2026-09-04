@@ -1,25 +1,19 @@
 """
 data/manual/*.json, data/complaints/recurring_cases.json 을 검색 인덱스로 빌드한다.
 
-방식: 실무에서 FAQ/매뉴얼 검색에 흔히 쓰는 "어휘 검색(BM25) + 의미 검색(임베딩) 하이브리드".
+방식: 실무에서 FAQ/매뉴얼 검색에 흔히 쓰는 BM25 어휘 검색.
   - BM25: Elasticsearch/Lucene/Solr가 기본으로 쓰는 어휘 검색 알고리즘(rank_bm25 라이브러리).
     정확한 단어가 겹치면 강하게 반응하고, 문서 길이 정규화·단어 흔함(IDF) 보정이 들어있어
     단순 "키워드 포함 개수 세기"보다 "사람"처럼 흔한 단어의 오탐이 줄어든다.
-  - 임베딩: 문장 의미를 벡터로 바꿔 코사인 유사도로 비교. "가스 터졌어요" ↔ "가스폭발"처럼
-    단어 자체는 안 겹쳐도 뜻이 비슷하면 잡아낸다. 무료 로컬 모델(sentence-transformers,
-    paraphrase-multilingual-MiniLM-L12-v2, 다국어 지원)을 써서 API 비용·네트워크 의존이 없다.
-
-임베딩은 계산 비용이 있어 한 번 빌드해서 캐시(search/index/*.npy, *.json)해두고,
-질의 시점에는 캐시만 불러와 코사인 유사도 계산만 한다.
+의미 검색은 데이터팀의 검증에서 무관한 질문의 오탐 점수가 더 높게 나온 관계로 v1에서는
+비활성화했다. 따라서 현재 인덱스는 BM25 캐시와 화면 표시용 문서 정보만 생성한다.
 """
 import json
 import re
 import pickle
 from pathlib import Path
 
-import numpy as np
 from rank_bm25 import BM25Okapi
-from sentence_transformers import SentenceTransformer
 
 BASE = Path(__file__).resolve().parent.parent
 INDEX_DIR = Path(__file__).resolve().parent / "index"
@@ -74,6 +68,11 @@ def load_documents():
             "display_text": c["title"] + " " + body,
             "evidence_level": "official_manual",
             "breadcrumb": c.get("breadcrumb", []),
+            "departments": c.get("departments", []),
+            "page_start": c.get("page_start"),
+            "page_end": c.get("page_end"),
+            "content": body,
+            "source": c.get("source"),
         })
     for s in sections:
         if any(marker in s["section"] for marker in INDEX_PAGE_TITLE_MARKERS):
@@ -85,6 +84,11 @@ def load_documents():
             "display_text": s["section"] + " " + s["content"],
             "evidence_level": "official_manual",
             "breadcrumb": s.get("breadcrumb", []),
+            "departments": [],
+            "page_start": s.get("page"),
+            "page_end": s.get("page"),
+            "content": s.get("content", ""),
+            "source": s.get("source"),
         })
     for i, r in enumerate(recurring):
         docs.append({
@@ -95,6 +99,9 @@ def load_documents():
             "evidence_level": "historical_case",
             "departments": r.get("main_departments", []),
             "candidate_count": r.get("candidate_count"),
+            "content": r.get("manual_gap_note", ""),
+            "reviewer_note": r.get("reviewer_note"),
+            "department_routing": r.get("department_routing", []),
         })
     return docs
 
@@ -104,19 +111,10 @@ def build():
     tokenized = [tokenize(d["bm25_text"]) for d in docs]
     bm25 = BM25Okapi(tokenized)
 
-    print("임베딩 모델 로딩 중...")
-    model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
-    # 임베딩은 BM25와 반대로 문맥이 많을수록 의미 파악에 유리해서 본문(display_text)을 쓴다.
-    # 너무 길면 특정 단어 하나에 벡터가 묻히니 앞부분 400자로 제한.
-    embed_texts = [d["title"] + ". " + d["display_text"][:400] for d in docs]
-    print(f"{len(embed_texts)}개 문서 임베딩 계산 중...")
-    embeddings = model.encode(embed_texts, show_progress_bar=True, normalize_embeddings=True)
-
     with open(INDEX_DIR / "docs.json", "w", encoding="utf-8") as f:
         json.dump(docs, f, ensure_ascii=False, indent=2)
     with open(INDEX_DIR / "bm25.pkl", "wb") as f:
         pickle.dump({"bm25": bm25, "tokenized": tokenized}, f)
-    np.save(INDEX_DIR / "embeddings.npy", embeddings)
 
     print(f"인덱스 저장 완료: {INDEX_DIR}")
     print(f"  - 문서 수: {len(docs)} (manual_case {sum(1 for d in docs if d['kind']=='manual_case')}, "

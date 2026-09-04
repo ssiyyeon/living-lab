@@ -1,44 +1,88 @@
 import { useState } from "react";
 import { Search, X, Loader2, Bell, HelpCircle, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
-import { SearchResults } from "./components/SearchResults";
+import { SearchResults, type SearchResult } from "./components/SearchResults";
 import { SearchSidePanel } from "./components/SearchSidePanel";
+import { searchManual, SearchApiError, type ApiSearchResult } from "@/api/search";
 import yusungLogo from "@/imports/image.png";
 
 {/* MARKER-MAKE-KIT-INVOKED */}
 
 const EXAMPLE_QUERIES = [
-  "야간 소음 민원 처리 절차",
-  "건축 허가 문의 담당 부서",
-  "기초생활수급 긴급 지원",
-  "도로 파손 신고 방법",
-  "불법 주정차 단속 안내",
-  "위생 점검 민원 접수",
+  "지하차도에 물이 차서 차가 못 지나가요",
+  "가스가 터진 것 같아요 냄새나요",
+  "고양이가 로드킬 당했어요 사체를 치워주세요",
+  "포트홀 때문에 타이어가 터질 뻔했어요",
+  "불법으로 주차한 차를 단속해 주세요",
+  "가로등이 고장 나서 어두워요",
 ];
+
+function toSearchResult(result: ApiSearchResult, index: number): SearchResult {
+  const department = result["부서"] || "관련 부서 확인 필요";
+  const page = result["페이지"] == null ? "" : String(result["페이지"]);
+  return {
+    id: `${index}-${result["문서명"]}-${result["민원유형"]}`,
+    tier: result.tier,
+    documentName: result["문서명"],
+    civilType: result["민원유형"],
+    department,
+    paragraphSummary: result["관련문단"] || "",
+    note: result["참고사항"] || "",
+    contact: result["담당자"] || "",
+    page,
+    relevance: result["유사도"],
+    tags: Array.from(new Set([result.tier, department])),
+  };
+}
 
 export default function App() {
   const [activeCategory, setActiveCategory] = useState("manual");
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
-  const [hasResults, setHasResults] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [evidenceLevel, setEvidenceLevel] = useState("");
+  const [searchNotice, setSearchNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-  const handleSearch = (q?: string) => {
+  const handleSearch = async (q?: string) => {
     const searchQuery = q ?? query;
     if (!searchQuery.trim()) return;
     if (q) setQuery(q);
     setIsSearching(true);
-    setHasResults(false);
-    setTimeout(() => {
+    setHasSearched(false);
+    setSearchNotice("");
+    try {
+      const response = await searchManual(searchQuery.trim());
+      setResults(response["결과"].map(toSearchResult));
+      setEvidenceLevel(response["근거수준"]);
+      setSearchNotice(response["안내"] || "");
+    } catch (error) {
+      const apiError = error instanceof SearchApiError ? error : null;
+      const missing = apiError?.missingFiles.length
+        ? ` 필요한 파일: ${apiError.missingFiles.join(", ")}`
+        : "";
+      const modules = apiError?.missingModules.length
+        ? ` 필요한 Python 패키지: ${apiError.missingModules.join(", ")}`
+        : "";
+      setResults([]);
+      setEvidenceLevel("연결 오류");
+      setSearchNotice(`${apiError?.message ?? "검색 요청에 실패했습니다."}${missing}${modules}`);
+    } finally {
       setIsSearching(false);
-      setHasResults(true);
-    }, 900);
+      setHasSearched(true);
+    }
   };
 
   const handleClear = () => {
     setQuery("");
-    setHasResults(false);
+    setHasSearched(false);
+    setResults([]);
+    setEvidenceLevel("");
+    setSearchNotice("");
   };
+
+  const recommendedDepartments = Array.from(new Set(results.map((result) => result.department))).join(" · ");
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--background)", fontFamily: "var(--font-family)" }}>
@@ -131,13 +175,13 @@ export default function App() {
         {/* Scrollable body */}
         <main className="flex-1 overflow-y-auto flex flex-col">
           <div
-            className={`w-full px-10 ${!hasResults && !isSearching ? "flex-1 flex flex-col justify-center" : "py-8"}`}
+            className={`w-full px-10 ${!hasSearched && !isSearching ? "flex-1 flex flex-col justify-center" : "py-8"}`}
             style={{ maxWidth: "1220px", margin: "0 auto", alignSelf: "center", width: "100%" }}
           >
 
             {/* 검색창 */}
             <div className="mb-6">
-              {!hasResults && (
+              {!hasSearched && (
                 <div className="mb-7 text-center">
                   <h1 style={{ color: "var(--foreground)", fontWeight: 800, lineHeight: 1.3, fontSize: "32px" }}>
                     민원 내용을 입력하면
@@ -177,7 +221,7 @@ export default function App() {
               </div>
 
               {/* 검색 예시 (초기 상태) */}
-              {!hasResults && (
+              {!hasSearched && (
                 <div className="mt-4">
                   <p style={{ color: "var(--muted-foreground)", fontSize: "13px", marginBottom: "10px" }}>검색 예시</p>
                   <div className="flex flex-wrap gap-2">
@@ -196,24 +240,20 @@ export default function App() {
               )}
 
               {/* 검색 요약바 (결과 있을 때) */}
-              {hasResults && !isSearching && (
+              {hasSearched && !isSearching && (
                 <div className="mt-4 flex flex-wrap items-center gap-3">
                   <span
                     className="px-3.5 py-1.5"
                     style={{ borderRadius: "999px", background: "var(--brand-green)", color: "#fff", fontSize: "13px", fontWeight: 700 }}
                   >
-                    총 4건
+                    {evidenceLevel} · 총 {results.length}건
                   </span>
                   <div className="flex-1" />
-                  <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>
-                    추천 담당부서: <strong style={{ color: "var(--foreground)" }}>총무과 · 민원과</strong>
-                  </span>
-                  <span
-                    className="px-3 py-1.5"
-                    style={{ borderRadius: "8px", background: "#FFF7E6", color: "#A07020", fontSize: "12px", fontWeight: 600 }}
-                  >
-                    ⚡ 야간 긴급 시 총무과 즉시 연계
-                  </span>
+                  {recommendedDepartments && (
+                    <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>
+                      관련 담당부서: <strong style={{ color: "var(--foreground)" }}>{recommendedDepartments}</strong>
+                    </span>
+                  )}
                 </div>
               )}
             </div>
@@ -227,19 +267,21 @@ export default function App() {
             )}
 
             {/* 검색 결과 — 2단 레이아웃 */}
-            {hasResults && !isSearching && (
+            {hasSearched && !isSearching && (
               <div className="flex gap-6 items-start">
                 <div className="flex-1 min-w-0">
-                  <SearchResults />
+                  <SearchResults results={results} notice={searchNotice} />
                 </div>
-                <div className="flex-shrink-0" style={{ width: "300px" }}>
-                  <SearchSidePanel />
-                </div>
+                {results.length > 0 && (
+                  <div className="flex-shrink-0" style={{ width: "300px" }}>
+                    <SearchSidePanel results={results} />
+                  </div>
+                )}
               </div>
             )}
 
             {/* 초기 상태 — 2단 카드 */}
-            {!hasResults && !isSearching && (
+            {!hasSearched && !isSearching && (
               <div className="grid grid-cols-2 gap-6">
 
                 {/* 최근 공지사항 */}
