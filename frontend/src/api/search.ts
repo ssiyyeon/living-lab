@@ -9,6 +9,24 @@ export interface DepartmentContact {
   phoneNumbers: string[];
 }
 
+export interface OperatorOption {
+  id: string;
+  label: string;
+  department: string;
+  status: string;
+  statusLabel: string;
+  actionSteps: string[];
+}
+
+export interface OperatorGuidance {
+  mode: "direct_action" | "reference_action" | "needs_clarification";
+  headline: string;
+  question: string | null;
+  actionSteps: string[];
+  options: OperatorOption[];
+  caution: string;
+}
+
 export interface ApiSearchResult {
   id: string;
   kind: string;
@@ -18,6 +36,7 @@ export interface ApiSearchResult {
   department: string;
   departments: string[];
   departmentContacts: DepartmentContact[];
+  operatorGuidance: OperatorGuidance;
   paragraphSummary: string;
   keyActions: string[];
   originalText: string;

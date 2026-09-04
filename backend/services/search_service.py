@@ -485,6 +485,9 @@ class SearchService:
             "departmentContacts": self._contacts_for_departments(
                 departments
             ),
+            "operatorGuidance": self._manual_operator_guidance(
+                key_actions
+            ),
             "paragraphSummary": self._manual_summary(
                 civil_type=civil_type,
                 departments=departments,
@@ -582,6 +585,9 @@ class SearchService:
             "department": "담당 부서 확인 필요",
             "departments": [],
             "departmentContacts": [],
+            "operatorGuidance": self._manual_operator_guidance(
+                self._extract_key_actions(content)
+            ),
             "paragraphSummary": (
                 self._truncate(excerpt, 180)
                 or "관련 원문 내용을 확인해 주세요."
@@ -763,6 +769,11 @@ class SearchService:
             "departmentContacts": self._contacts_for_departments(
                 departments
             ),
+            "operatorGuidance": self._historical_operator_guidance(
+                civil_type=civil_type,
+                departments=departments,
+                routing=routing,
+            ),
             "paragraphSummary": paragraph,
             "keyActions": [],
             "originalText": "",
@@ -840,6 +851,14 @@ class SearchService:
             "department": "담당 부서 확인 필요",
             "departments": [],
             "departmentContacts": [],
+            "operatorGuidance": {
+                "mode": "reference_action",
+                "headline": "처리 방법을 확인해 주세요",
+                "question": None,
+                "actionSteps": [],
+                "options": [],
+                "caution": "검색 결과의 상세 원문과 담당부서를 확인해 주세요.",
+            },
             "paragraphSummary": (
                 "상세 원문 데이터 확인이 필요합니다."
             ),
@@ -982,6 +1001,144 @@ class SearchService:
 
         return contacts
 
+    def _manual_operator_guidance(
+        self,
+        action_steps: list[str],
+    ) -> dict[str, Any]:
+
+        return {
+            "mode": "direct_action",
+            "headline": "매뉴얼에 따른 대응",
+            "question": None,
+            "actionSteps": action_steps,
+            "options": [],
+            "caution": "",
+        }
+
+    def _historical_operator_guidance(
+        self,
+        civil_type: str,
+        departments: list[str],
+        routing: list[dict[str, str]],
+    ) -> dict[str, Any]:
+
+        options = []
+
+        for index, route in enumerate(routing):
+            department = self._clean_text(
+                route.get("department", "")
+            )
+
+            if not department:
+                continue
+
+            confidence = self._clean_text(
+                route.get("confidence", "")
+            )
+
+            if confidence.startswith("높음"):
+                status = "likely"
+                status_label = "우선 안내"
+
+            else:
+                status = "needs_confirmation"
+                status_label = "담당 확인 필요"
+
+            options.append(
+                {
+                    "id": f"route-{index + 1}",
+                    "label": self._routing_option_label(
+                        route.get("condition", ""),
+                        department,
+                    ),
+                    "department": department,
+                    "status": status,
+                    "statusLabel": status_label,
+                    "actionSteps": self._historical_action_steps(
+                        department
+                    ),
+                }
+            )
+
+        if len(options) > 1:
+            return {
+                "mode": "needs_clarification",
+                "headline": "먼저 상황을 확인해 주세요",
+                "question": self._clarification_question(
+                    civil_type
+                ),
+                "actionSteps": [],
+                "options": options,
+                "caution": (
+                    "공식 매뉴얼이 없는 유형입니다. 선택지는 과거 처리사례 기준이며, "
+                    "'담당 확인 필요' 항목은 확정 안내로 사용하지 마세요."
+                ),
+            }
+
+        department_text = self._department_text(
+            departments
+        )
+
+        return {
+            "mode": "reference_action",
+            "headline": "지금 할 일",
+            "question": None,
+            "actionSteps": self._historical_action_steps(
+                department_text
+            ),
+            "options": [],
+            "caution": (
+                "공식 매뉴얼이 없는 유형으로, 과거 처리사례의 담당부서를 "
+                "참고해 안내합니다."
+            ),
+        }
+
+    def _historical_action_steps(
+        self,
+        department: str,
+    ) -> list[str]:
+
+        department_step = (
+            f"처리부서를 {department}로 지정해 저장하세요."
+            if department
+            and department != "담당 부서 확인 필요"
+            else "처리부서를 확인한 뒤 지정해 저장하세요."
+        )
+
+        return [
+            "민원 위치와 구체적인 내용을 확인하세요.",
+            (
+                "차세대인사랑 당직민원등록에서 민원 내용과 "
+                "당직자 조치내용을 입력하세요."
+            ),
+            department_step,
+            "즉시 해결되지 않은 민원은 익일 소관부서로 이첩하세요.",
+        ]
+
+    def _routing_option_label(
+        self,
+        condition: str,
+        fallback: str,
+    ) -> str:
+
+        label = self._clean_text(condition).split("(", 1)[0]
+        label = label.rstrip(" ·,-")
+
+        return label or fallback
+
+    def _clarification_question(
+        self,
+        civil_type: str,
+    ) -> str:
+
+        if "가로등" in civil_type:
+            return "가로등이 설치된 위치가 어디인가요?"
+
+        if "미성년자" in civil_type:
+            return "신고 대상 장소와 위반 내용이 무엇인가요?"
+
+        return "민원의 위치와 세부 상황 중 어디에 해당하나요?"
+
     def _manual_summary(
         self,
         civil_type: str,
@@ -1074,6 +1231,11 @@ class SearchService:
         selected: list[tuple[int, str]] = []
         seen: set[str] = set()
 
+        candidate_lines = [
+            line
+            for _, _, line in candidates
+        ]
+
         for _, order, line in sorted(
             candidates,
             key=lambda item: (
@@ -1081,6 +1243,12 @@ class SearchService:
                 item[1],
             ),
         ):
+            if self._is_broad_duplicate(
+                line,
+                candidate_lines,
+            ):
+                continue
+
             normalized = re.sub(
                 r"\W+",
                 "",
@@ -1102,6 +1270,37 @@ class SearchService:
             line
             for _, line in sorted(selected)
         ]
+
+    def _is_broad_duplicate(
+        self,
+        line: str,
+        candidates: list[str],
+    ) -> bool:
+
+        words = set(
+            re.findall(
+                r"[가-힣A-Za-z0-9]{2,}",
+                line,
+            )
+        )
+
+        supporting_lines = 0
+
+        for other in candidates:
+            if other == line or len(other) >= len(line):
+                continue
+
+            other_words = set(
+                re.findall(
+                    r"[가-힣A-Za-z0-9]{2,}",
+                    other,
+                )
+            )
+
+            if len(words & other_words) >= 2:
+                supporting_lines += 1
+
+        return supporting_lines >= 2
 
     def _clean_action_line(
         self,

@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Search, X, Loader2, Bell, HelpCircle, Menu } from "lucide-react";
+import { Search, X, Loader2, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
-import { getTierLabel, SearchResults, type SearchResult } from "./components/SearchResults";
-import { SearchSidePanel } from "./components/SearchSidePanel";
+import { SearchResults, type SearchResult } from "./components/SearchResults";
 import { searchManual, SearchApiError, type ApiSearchResult } from "@/api/search";
 import yusungLogo from "@/imports/image.png";
 
@@ -29,6 +28,7 @@ function toSearchResult(result: ApiSearchResult, tier: string): SearchResult {
     department,
     departments: result.departments,
     departmentContacts: result.departmentContacts,
+    operatorGuidance: result.operatorGuidance,
     paragraphSummary: result.paragraphSummary,
     keyActions: result.keyActions,
     originalText: result.originalText,
@@ -48,16 +48,11 @@ function toSearchResult(result: ApiSearchResult, tier: string): SearchResult {
 }
 
 export default function App() {
-  const [activeCategory, setActiveCategory] = useState("manual");
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [results, setResults] = useState<SearchResult[]>([]);
-  const [evidenceLevel, setEvidenceLevel] = useState("");
   const [searchNotice, setSearchNotice] = useState("");
-  const [resultCount, setResultCount] = useState(0);
-  const [recommendedDepartments, setRecommendedDepartments] = useState<string[]>([]);
-  const [relevanceNotice, setRelevanceNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleSearch = async (q?: string) => {
@@ -70,19 +65,11 @@ export default function App() {
     try {
       const response = await searchManual(searchQuery.trim());
       setResults(response.results.map((result) => toSearchResult(result, response.tier)));
-      setEvidenceLevel(response.tier);
       setSearchNotice(response.message);
-      setResultCount(response.resultCount);
-      setRecommendedDepartments(response.recommendedDepartments);
-      setRelevanceNotice(response.relevanceNotice);
     } catch (error) {
       const apiError = error instanceof SearchApiError ? error : null;
       setResults([]);
-      setEvidenceLevel("연결 오류");
       setSearchNotice(apiError?.message ?? "검색 요청에 실패했습니다.");
-      setResultCount(0);
-      setRecommendedDepartments([]);
-      setRelevanceNotice("");
     } finally {
       setIsSearching(false);
       setHasSearched(true);
@@ -93,11 +80,7 @@ export default function App() {
     setQuery("");
     setHasSearched(false);
     setResults([]);
-    setEvidenceLevel("");
     setSearchNotice("");
-    setResultCount(0);
-    setRecommendedDepartments([]);
-    setRelevanceNotice("");
   };
 
   return (
@@ -121,8 +104,6 @@ export default function App() {
           }}
         >
           <Sidebar
-            activeCategory={activeCategory}
-            onCategoryChange={setActiveCategory}
             logoSrc={yusungLogo}
           />
         </div>
@@ -147,32 +128,11 @@ export default function App() {
               <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>총무과</span>
               <span style={{ color: "var(--border)" }}>/</span>
               <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 500 }}>
-                {{
-                  dept: "부서 정보",
-                  manual: "당직 매뉴얼",
-                  civil: "민원 유형",
-                  frequent: "자주 찾는 자료",
-                  notice: "공지사항",
-                  reference: "참고 문서",
-                }[activeCategory] ?? "민원 검색"}
+                민원 대응 검색
               </span>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button className="relative p-1.5 transition-colors duration-150" style={{ borderRadius: "8px", color: "var(--muted-foreground)" }}>
-              <Bell className="w-4 h-4" />
-              <span
-                className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full"
-                style={{ background: "#C0392B" }}
-              />
-            </button>
-            <button className="p-1.5 transition-colors duration-150" style={{ borderRadius: "8px", color: "var(--muted-foreground)" }}>
-              <HelpCircle className="w-4 h-4" />
-            </button>
-            <div
-              className="h-5 w-px mx-1"
-              style={{ background: "var(--border)" }}
-            />
             <div
               className="px-2.5 py-1 text-xs"
               style={{
@@ -183,7 +143,7 @@ export default function App() {
                 fontFamily: "var(--font-mono)",
               }}
             >
-              야간당직 중
+              당직 근무 지원
             </div>
           </div>
         </header>
@@ -202,7 +162,7 @@ export default function App() {
                   <h1 style={{ color: "var(--foreground)", fontWeight: 800, lineHeight: 1.3, fontSize: "32px" }}>
                     민원 내용을 입력하면
                     <br />
-                    <span style={{ color: "var(--brand-green)" }}>관련 문서를 즉시 찾아드립니다.</span>
+                    <span style={{ color: "var(--brand-green)" }}>필요한 대응 절차를 안내합니다.</span>
                   </h1>
                 </div>
               )}
@@ -255,104 +215,20 @@ export default function App() {
                 </div>
               )}
 
-              {/* 검색 요약바 (결과 있을 때) */}
-              {hasSearched && !isSearching && (
-                <div className="mt-4 flex flex-wrap items-center gap-3">
-                  <span
-                    className="px-3.5 py-1.5"
-                    style={{ borderRadius: "999px", background: "var(--brand-green)", color: "#fff", fontSize: "13px", fontWeight: 700 }}
-                  >
-                    {getTierLabel(evidenceLevel)} · 총 {resultCount}건
-                  </span>
-                  <div className="flex-1" />
-                  {recommendedDepartments.length > 0 && (
-                    <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>
-                      관련 담당부서: <strong style={{ color: "var(--foreground)" }}>{recommendedDepartments.join(" · ")}</strong>
-                    </span>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* 로딩 */}
             {isSearching && (
               <div className="flex flex-col items-center py-24 gap-4">
                 <Loader2 className="w-10 h-10 animate-spin" style={{ color: "var(--brand-green)" }} />
-                <p style={{ color: "var(--muted-foreground)", fontSize: "15px" }}>관련 문서를 검색하고 있습니다...</p>
+                <p style={{ color: "var(--muted-foreground)", fontSize: "15px" }}>대응 절차를 확인하고 있습니다...</p>
               </div>
             )}
 
-            {/* 검색 결과 — 2단 레이아웃 */}
+            {/* 검색 결과 */}
             {hasSearched && !isSearching && (
-              <div className="flex gap-6 items-start">
-                <div className="flex-1 min-w-0">
-                  <SearchResults results={results} notice={searchNotice} relevanceNotice={relevanceNotice} />
-                </div>
-                {results.length > 0 && (
-                  <div className="flex-shrink-0" style={{ width: "300px" }}>
-                    <SearchSidePanel results={results} />
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* 초기 상태 — 2단 카드 */}
-            {!hasSearched && !isSearching && (
-              <div className="grid grid-cols-2 gap-6">
-
-                {/* 최근 공지사항 */}
-                <div className="overflow-hidden border" style={{ borderRadius: "16px", background: "var(--card)", borderColor: "var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-                  <div className="px-7 py-5 border-b flex items-center justify-between" style={{ borderColor: "var(--border)" }}>
-                    <p style={{ color: "var(--foreground)", fontSize: "17px", fontWeight: 700 }}>최근 공지사항</p>
-                    <button style={{ color: "var(--brand-green)", fontSize: "14px", fontWeight: 500 }}>전체 보기</button>
-                  </div>
-                  <ul>
-                    {[
-                      { label: "[긴급] 야간 당직 연락망 변경 안내", date: "2024-12-10", badge: "긴급" },
-                      { label: "2025년 1월 당직 일정 공지", date: "2024-12-05", badge: "일반" },
-                      { label: "민원 처리 시스템 업데이트 안내", date: "2024-11-28", badge: "시스템" },
-                      { label: "연말 당직 비상연락망 배포", date: "2024-11-20", badge: "일반" },
-                      { label: "민원서류 보존기간 변경 안내", date: "2024-11-10", badge: "시스템" },
-                    ].map((notice, i) => (
-                      <li key={i} className="flex items-center justify-between px-7 py-5 border-b last:border-b-0 cursor-pointer hover:bg-gray-50 transition-colors" style={{ borderColor: "var(--border)" }}>
-                        <div className="flex items-center gap-3">
-                          <span className="px-3 py-1.5 flex-shrink-0" style={{ borderRadius: "8px", background: notice.badge === "긴급" ? "#FBEAEA" : "var(--muted)", color: notice.badge === "긴급" ? "#A02020" : "var(--muted-foreground)", fontSize: "13px", fontWeight: 600 }}>
-                            {notice.badge}
-                          </span>
-                          <span style={{ color: "var(--foreground)", fontSize: "15px" }}>{notice.label}</span>
-                        </div>
-                        <span style={{ color: "var(--muted-foreground)", fontSize: "13px", flexShrink: 0 }}>{notice.date}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* 업무 바로가기 */}
-                <div className="overflow-hidden border" style={{ borderRadius: "16px", background: "var(--card)", borderColor: "var(--border)", boxShadow: "0 1px 6px rgba(0,0,0,0.05)" }}>
-                  <div className="px-7 py-5 border-b" style={{ borderColor: "var(--border)" }}>
-                    <p style={{ color: "var(--foreground)", fontSize: "17px", fontWeight: 700 }}>업무 바로가기</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-0">
-                    {[
-                      { label: "비상 연락망", icon: "📞" },
-                      { label: "야간 처리 절차", icon: "🌙" },
-                      { label: "민원 접수 양식", icon: "📋" },
-                      { label: "당직 일지 작성", icon: "📝" },
-                      { label: "부서 안내도", icon: "🏢" },
-                      { label: "긴급 신고 연계", icon: "🚨" },
-                    ].map((item) => (
-                      <button
-                        key={item.label}
-                        className="flex flex-col items-center justify-center gap-3 border-b border-r transition-colors hover:bg-gray-50"
-                        style={{ borderColor: "var(--border)", paddingTop: "36px", paddingBottom: "36px" }}
-                      >
-                        <span style={{ fontSize: "32px" }}>{item.icon}</span>
-                        <span style={{ color: "var(--foreground)", fontSize: "14px", fontWeight: 500 }}>{item.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
+              <div className="mx-auto w-full" style={{ maxWidth: "820px" }}>
+                <SearchResults results={results} notice={searchNotice} />
               </div>
             )}
 
@@ -365,7 +241,7 @@ export default function App() {
           style={{ background: "var(--card)", borderColor: "var(--border)" }}
         >
           <p style={{ color: "var(--muted-foreground)", fontSize: "10px" }}>
-            당직 민원 검색 시스템 v2.4.1 · 관리부서: 정보화담당관실
+            당직 민원 검색 시스템 · 관리부서: 총무과
           </p>
           <p style={{ color: "var(--muted-foreground)", fontSize: "10px", fontFamily: "var(--font-mono)" }}>
             {new Date().toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric", weekday: "short" })}

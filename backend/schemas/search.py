@@ -32,6 +32,24 @@ class DepartmentContact(BaseModel):
     phoneNumbers: List[str] = Field(default_factory=list)
 
 
+class OperatorOption(BaseModel):
+    id: str
+    label: str
+    department: str
+    status: str
+    statusLabel: str
+    actionSteps: List[str] = Field(default_factory=list)
+
+
+class OperatorGuidance(BaseModel):
+    mode: str
+    headline: str
+    question: Optional[str] = None
+    actionSteps: List[str] = Field(default_factory=list)
+    options: List[OperatorOption] = Field(default_factory=list)
+    caution: str = ""
+
+
 class SearchResult(BaseModel):
     id: str
     kind: str
@@ -45,6 +63,7 @@ class SearchResult(BaseModel):
     departmentContacts: List[DepartmentContact] = Field(
         default_factory=list
     )
+    operatorGuidance: OperatorGuidance
 
     paragraphSummary: str
     keyActions: List[str] = Field(default_factory=list)
