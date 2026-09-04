@@ -1,1 +1,6 @@
+fastapi
+uvicorn[standard]
+pydantic
+numpy
 rank_bm25==0.2.2
+sentence-transformers==5.7.0

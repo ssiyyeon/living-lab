@@ -9,6 +9,7 @@ data/raw/
 
 # OS / editor
 .DS_Store
+.vscode/
 
 # python
 __pycache__/

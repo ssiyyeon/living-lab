@@ -16,7 +16,7 @@ python -m venv .venv
 
 ```powershell
 # 터미널 1 — 프로젝트 루트
-.\.venv\Scripts\python.exe backend\server.py
+.\.venv\Scripts\python.exe -m uvicorn backend.main:app --reload --host 127.0.0.1 --port 8000
 
 # 터미널 2 — frontend 폴더
 pnpm install
