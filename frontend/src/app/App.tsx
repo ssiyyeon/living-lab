@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Search, X, Loader2, Bell, HelpCircle, Menu } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
-import { SearchResults, type SearchResult } from "./components/SearchResults";
+import { getTierLabel, SearchResults, type SearchResult } from "./components/SearchResults";
 import { SearchSidePanel } from "./components/SearchSidePanel";
 import { searchManual, SearchApiError, type ApiSearchResult } from "@/api/search";
 import yusungLogo from "@/imports/image.png";
@@ -17,21 +17,30 @@ const EXAMPLE_QUERIES = [
   "가로등이 고장 나서 어두워요",
 ];
 
-function toSearchResult(result: ApiSearchResult, index: number): SearchResult {
-  const department = result["부서"] || "관련 부서 확인 필요";
-  const page = result["페이지"] == null ? "" : String(result["페이지"]);
+function toSearchResult(result: ApiSearchResult, tier: string): SearchResult {
+  const department = result.department || result.departments.join(" · ") || "관련 부서 확인 필요";
   return {
-    id: `${index}-${result["문서명"]}-${result["민원유형"]}`,
-    tier: result.tier,
-    documentName: result["문서명"],
-    civilType: result["민원유형"],
+    id: result.id,
+    tier,
+    kind: result.kind,
+    category: result.category,
+    documentName: result.documentName,
+    civilType: result.civilType,
     department,
-    paragraphSummary: result["관련문단"] || "",
-    note: result["참고사항"] || "",
-    contact: result["담당자"] || "",
-    page,
-    relevance: result["유사도"],
-    tags: Array.from(new Set([result.tier, department])),
+    departments: result.departments,
+    paragraphSummary: result.paragraphSummary,
+    guidance: result.guidance,
+    note: result.note,
+    updatedAt: result.updatedAt,
+    relevance: result.relevance,
+    tags: result.tags,
+    evidenceLevel: result.evidenceLevel,
+    sourceReference: result.sourceReference,
+    sourcePages: result.sourcePages,
+    page: result.matchedPage ?? result.sourcePages[0] ?? null,
+    originalUrl: result.originalUrl,
+    candidateCount: result.candidateCount,
+    departmentRouting: result.departmentRouting,
   };
 }
 
@@ -43,6 +52,9 @@ export default function App() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [evidenceLevel, setEvidenceLevel] = useState("");
   const [searchNotice, setSearchNotice] = useState("");
+  const [resultCount, setResultCount] = useState(0);
+  const [recommendedDepartments, setRecommendedDepartments] = useState<string[]>([]);
+  const [relevanceNotice, setRelevanceNotice] = useState("");
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
   const handleSearch = async (q?: string) => {
@@ -54,20 +66,20 @@ export default function App() {
     setSearchNotice("");
     try {
       const response = await searchManual(searchQuery.trim());
-      setResults(response["결과"].map(toSearchResult));
-      setEvidenceLevel(response["근거수준"]);
-      setSearchNotice(response["안내"] || "");
+      setResults(response.results.map((result) => toSearchResult(result, response.tier)));
+      setEvidenceLevel(response.tier);
+      setSearchNotice(response.message);
+      setResultCount(response.resultCount);
+      setRecommendedDepartments(response.recommendedDepartments);
+      setRelevanceNotice(response.relevanceNotice);
     } catch (error) {
       const apiError = error instanceof SearchApiError ? error : null;
-      const missing = apiError?.missingFiles.length
-        ? ` 필요한 파일: ${apiError.missingFiles.join(", ")}`
-        : "";
-      const modules = apiError?.missingModules.length
-        ? ` 필요한 Python 패키지: ${apiError.missingModules.join(", ")}`
-        : "";
       setResults([]);
       setEvidenceLevel("연결 오류");
-      setSearchNotice(`${apiError?.message ?? "검색 요청에 실패했습니다."}${missing}${modules}`);
+      setSearchNotice(apiError?.message ?? "검색 요청에 실패했습니다.");
+      setResultCount(0);
+      setRecommendedDepartments([]);
+      setRelevanceNotice("");
     } finally {
       setIsSearching(false);
       setHasSearched(true);
@@ -80,9 +92,10 @@ export default function App() {
     setResults([]);
     setEvidenceLevel("");
     setSearchNotice("");
+    setResultCount(0);
+    setRecommendedDepartments([]);
+    setRelevanceNotice("");
   };
-
-  const recommendedDepartments = Array.from(new Set(results.map((result) => result.department))).join(" · ");
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "var(--background)", fontFamily: "var(--font-family)" }}>
@@ -246,12 +259,12 @@ export default function App() {
                     className="px-3.5 py-1.5"
                     style={{ borderRadius: "999px", background: "var(--brand-green)", color: "#fff", fontSize: "13px", fontWeight: 700 }}
                   >
-                    {evidenceLevel} · 총 {results.length}건
+                    {getTierLabel(evidenceLevel)} · 총 {resultCount}건
                   </span>
                   <div className="flex-1" />
-                  {recommendedDepartments && (
+                  {recommendedDepartments.length > 0 && (
                     <span style={{ color: "var(--muted-foreground)", fontSize: "12px" }}>
-                      관련 담당부서: <strong style={{ color: "var(--foreground)" }}>{recommendedDepartments}</strong>
+                      관련 담당부서: <strong style={{ color: "var(--foreground)" }}>{recommendedDepartments.join(" · ")}</strong>
                     </span>
                   )}
                 </div>
@@ -270,7 +283,7 @@ export default function App() {
             {hasSearched && !isSearching && (
               <div className="flex gap-6 items-start">
                 <div className="flex-1 min-w-0">
-                  <SearchResults results={results} notice={searchNotice} />
+                  <SearchResults results={results} notice={searchNotice} relevanceNotice={relevanceNotice} />
                 </div>
                 {results.length > 0 && (
                   <div className="flex-shrink-0" style={{ width: "300px" }}>

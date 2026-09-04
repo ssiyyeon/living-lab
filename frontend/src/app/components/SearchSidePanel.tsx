@@ -1,5 +1,5 @@
 import { Building2, FileText, Lightbulb, ShieldCheck } from "lucide-react";
-import type { SearchResult } from "./SearchResults";
+import { getTierLabel, type SearchResult } from "./SearchResults";
 
 interface SearchSidePanelProps {
   results: SearchResult[];
@@ -12,8 +12,10 @@ const SEARCH_TIPS = [
 ];
 
 export function SearchSidePanel({ results }: SearchSidePanelProps) {
-  const departments = Array.from(new Set(results.map((result) => result.department)));
-  const sources = Array.from(new Set(results.map((result) => result.documentName)));
+  const departments = Array.from(new Set(
+    results.flatMap((result) => result.departments.length > 0 ? result.departments : [result.department]),
+  ));
+  const sources = Array.from(new Set(results.map((result) => result.sourceReference || result.documentName)));
   const tiers = Array.from(new Set(results.map((result) => result.tier)));
 
   return (
@@ -43,7 +45,7 @@ export function SearchSidePanel({ results }: SearchSidePanelProps) {
         <div className="px-5 py-4 flex flex-wrap gap-2">
           {tiers.map((tier) => (
             <span key={tier} className="px-3 py-1.5" style={{ borderRadius: "999px", background: "var(--brand-green-light)", color: "var(--brand-green-dark)", fontSize: "12px", fontWeight: 700 }}>
-              {tier}
+              {getTierLabel(tier)}
             </span>
           ))}
         </div>

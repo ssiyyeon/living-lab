@@ -5,33 +5,56 @@ import {
   Building2,
   ChevronDown,
   ChevronUp,
+  ExternalLink,
   FileText,
   Info,
   MapPin,
-  Phone,
+  Route,
   Tag,
 } from "lucide-react";
+import type { DepartmentRouting } from "@/api/search";
 
 export interface SearchResult {
   id: string;
   tier: string;
+  kind: string;
+  category: string;
   documentName: string;
   civilType: string;
   department: string;
+  departments: string[];
   paragraphSummary: string;
+  guidance: string;
   note: string;
-  contact: string;
-  page: string;
-  relevance: number | null;
+  updatedAt: string;
+  relevance: number;
   tags: string[];
+  evidenceLevel: string;
+  sourceReference: string;
+  sourcePages: number[];
+  page: number | null;
+  originalUrl: string | null;
+  candidateCount: number | null;
+  departmentRouting: DepartmentRouting[];
 }
 
 interface SearchResultsProps {
   results: SearchResult[];
   notice: string;
+  relevanceNotice: string;
 }
 
-export function SearchResults({ results, notice }: SearchResultsProps) {
+const TIER_LABELS: Record<string, string> = {
+  manual_exact: "공식 매뉴얼",
+  historical_case: "과거 민원 참고",
+  no_match: "검색 결과 없음",
+};
+
+export function getTierLabel(tier: string) {
+  return TIER_LABELS[tier] ?? tier;
+}
+
+export function SearchResults({ results, notice, relevanceNotice }: SearchResultsProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [activeFilter, setActiveFilter] = useState("전체");
 
@@ -39,9 +62,10 @@ export function SearchResults({ results, notice }: SearchResultsProps) {
     () => ["전체", ...Array.from(new Set(results.map((result) => result.tier)))],
     [results],
   );
-  const visibleResults = activeFilter === "전체"
+  const effectiveFilter = filters.includes(activeFilter) ? activeFilter : "전체";
+  const visibleResults = effectiveFilter === "전체"
     ? results
-    : results.filter((result) => result.tier === activeFilter);
+    : results.filter((result) => result.tier === effectiveFilter);
 
   if (results.length === 0) {
     return (
@@ -66,6 +90,13 @@ export function SearchResults({ results, notice }: SearchResultsProps) {
         </div>
       )}
 
+      {relevanceNotice && (
+        <div className="mb-4 px-1 flex items-start gap-2" style={{ color: "var(--muted-foreground)" }}>
+          <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+          <p style={{ fontSize: "11px", lineHeight: 1.6 }}>{relevanceNotice}</p>
+        </div>
+      )}
+
       <div className="flex gap-2 mb-5 flex-wrap">
         {filters.map((filter) => (
           <button
@@ -74,14 +105,14 @@ export function SearchResults({ results, notice }: SearchResultsProps) {
             className="px-4 py-2 transition-all duration-150"
             style={{
               borderRadius: "999px",
-              background: activeFilter === filter ? "var(--brand-green)" : "var(--card)",
-              color: activeFilter === filter ? "#fff" : "var(--muted-foreground)",
-              border: `1px solid ${activeFilter === filter ? "var(--brand-green)" : "var(--border)"}`,
+              background: effectiveFilter === filter ? "var(--brand-green)" : "var(--card)",
+              color: effectiveFilter === filter ? "#fff" : "var(--muted-foreground)",
+              border: `1px solid ${effectiveFilter === filter ? "var(--brand-green)" : "var(--border)"}`,
               fontSize: "13px",
-              fontWeight: activeFilter === filter ? 600 : 400,
+              fontWeight: effectiveFilter === filter ? 600 : 400,
             }}
           >
-            {filter}
+            {filter === "전체" ? filter : getTierLabel(filter)}
           </button>
         ))}
       </div>
@@ -89,9 +120,7 @@ export function SearchResults({ results, notice }: SearchResultsProps) {
       <div className="space-y-4">
         {visibleResults.map((result, index) => {
           const isExpanded = expandedId === result.id;
-          const relevanceLabel = result.relevance === null
-            ? "키워드 일치"
-            : `관련도 ${Math.round(result.relevance * 100)}%`;
+          const relevanceLabel = `관련도 ${Math.round(result.relevance)}%`;
 
           return (
             <div
@@ -144,7 +173,7 @@ export function SearchResults({ results, notice }: SearchResultsProps) {
                         <Building2 className="w-3 h-3" />
                         {result.department}
                       </span>
-                      {result.page && (
+                      {result.page !== null && (
                         <span className="inline-flex items-center gap-1.5" style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
                           <MapPin className="w-3 h-3" />
                           {result.page}쪽
@@ -178,15 +207,46 @@ export function SearchResults({ results, notice }: SearchResultsProps) {
                             </div>
                           </div>
                         )}
-                        {result.contact && (
+                        {result.guidance && (
                           <div className="p-4 flex gap-3" style={{ borderRadius: "12px", background: "#F5F5F7", borderLeft: "3px solid #636366" }}>
-                            <Phone className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#636366" }} />
+                            <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#636366" }} />
                             <div>
-                              <p style={{ color: "#3A3A3C", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>담당자 연락처</p>
-                              <p className="whitespace-pre-line" style={{ color: "#3A3A3C", fontSize: "13px", lineHeight: 1.7 }}>{result.contact}</p>
+                              <p style={{ color: "#3A3A3C", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>처리 안내</p>
+                              <p className="whitespace-pre-line" style={{ color: "#3A3A3C", fontSize: "13px", lineHeight: 1.7 }}>{result.guidance}</p>
                             </div>
                           </div>
                         )}
+                        {result.departmentRouting.length > 0 && (
+                          <div className="p-4" style={{ borderRadius: "12px", background: "var(--background)" }}>
+                            <div className="flex items-center gap-2 mb-3">
+                              <Route className="w-4 h-4" style={{ color: "var(--brand-green)" }} />
+                              <p style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 700 }}>부서 배정 기준</p>
+                            </div>
+                            <ul className="space-y-2">
+                              {result.departmentRouting.map((route) => (
+                                <li key={`${route.department}-${route.condition}`} style={{ color: "var(--card-foreground)", fontSize: "12px", lineHeight: 1.6 }}>
+                                  <strong>{route.department}</strong> · {route.condition} ({route.confidence})
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-1" style={{ color: "var(--muted-foreground)", fontSize: "11px" }}>
+                          {result.sourceReference && <span>출처: {result.sourceReference}</span>}
+                          {result.updatedAt && <span>기준연도: {result.updatedAt}</span>}
+                          {result.candidateCount !== null && <span>참고 사례: {result.candidateCount}건</span>}
+                          {result.originalUrl && (
+                            <a
+                              href={result.originalUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1"
+                              style={{ color: "var(--brand-green)", fontWeight: 600 }}
+                            >
+                              원문 확인 <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -195,7 +255,7 @@ export function SearchResults({ results, notice }: SearchResultsProps) {
                       className="inline-flex items-center gap-1.5 transition-colors duration-150"
                       style={{ color: "var(--muted-foreground)", fontSize: "13px" }}
                     >
-                      {isExpanded ? <><ChevronUp className="w-4 h-4" />접기</> : <><ChevronDown className="w-4 h-4" />참고사항 보기</>}
+                      {isExpanded ? <><ChevronUp className="w-4 h-4" />접기</> : <><ChevronDown className="w-4 h-4" />상세 정보 보기</>}
                     </button>
                   </div>
                 </div>
