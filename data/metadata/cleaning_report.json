@@ -1,0 +1,70 @@
+{
+  "2024": {
+    "source_file": "private/raw/complaints_2024.xlsx",
+    "original_rows": 2813,
+    "original_columns": [
+      "No.",
+      "당직일자",
+      "민원인명",
+      "민원내용",
+      "당직자조치내용",
+      "처리부서"
+    ],
+    "removed_empty_complaint_text": 0,
+    "removed_empty_department": 456,
+    "removed_duplicates": 0,
+    "final_rows": 2357,
+    "department_name_normalized_count": 1,
+    "action_text_whitespace_variance_count": 78,
+    "action_text_note": "당직자조치내용은 원본 컬럼 하나뿐이라 정제하지 않고 그대로 보존함(표기 차이는 확인했으나 별도 표준 컬럼을 만들 필요가 없다고 판단)"
+  },
+  "2025": {
+    "source_file": "private/raw/complaints_2025.xlsx",
+    "original_rows": 2874,
+    "original_columns": [
+      "No.",
+      "당직일자",
+      "민원인명",
+      "민원내용",
+      "당직자조치내용",
+      "처리부서"
+    ],
+    "removed_empty_complaint_text": 0,
+    "removed_empty_department": 549,
+    "removed_duplicates": 0,
+    "final_rows": 2325,
+    "department_name_normalized_count": 8,
+    "action_text_whitespace_variance_count": 71,
+    "action_text_note": "당직자조치내용은 원본 컬럼 하나뿐이라 정제하지 않고 그대로 보존함(표기 차이는 확인했으나 별도 표준 컬럼을 만들 필요가 없다고 판단)"
+  },
+  "2026": {
+    "source_file": "private/raw/complaints_2026.xlsx",
+    "original_rows": 1148,
+    "original_columns": [
+      "No.",
+      "당직일자",
+      "당직구분",
+      "민원인명",
+      "민원내용",
+      "당직자조치내용",
+      "처리부서",
+      "처리상태"
+    ],
+    "removed_empty_complaint_text": 0,
+    "removed_empty_department": 206,
+    "removed_duplicates": 0,
+    "final_rows": 942,
+    "department_name_normalized_count": 1,
+    "action_text_whitespace_variance_count": 22,
+    "action_text_note": "당직자조치내용은 원본 컬럼 하나뿐이라 정제하지 않고 그대로 보존함(표기 차이는 확인했으나 별도 표준 컬럼을 만들 필요가 없다고 판단)"
+  },
+  "combined": {
+    "total_original_rows": 6835,
+    "total_final_rows": 5624,
+    "years": [
+      2024,
+      2025,
+      2026
+    ]
+  }
+}
