@@ -28,6 +28,7 @@ class SearchService:
         self.manual_cases: dict[str, dict[str, Any]] = {}
         self.manual_sections: dict[str, dict[str, Any]] = {}
         self.recurring_cases: dict[str, dict[str, Any]] = {}
+        self.department_contact_index: dict[str, list[str]] = {}
 
         self.manual_source = "당직 근무요령 및 상황별 매뉴얼"
 
@@ -85,6 +86,10 @@ class SearchService:
                 for item in cases
                 if item.get("id")
             }
+
+            self.department_contact_index = (
+                self._build_department_contact_index(cases)
+            )
 
             self.manual_sections = {
                 item["id"]: item
@@ -477,6 +482,9 @@ class SearchService:
                 departments
             ),
             "departments": departments,
+            "departmentContacts": self._contacts_for_departments(
+                departments
+            ),
             "paragraphSummary": self._manual_summary(
                 civil_type=civil_type,
                 departments=departments,
@@ -573,6 +581,7 @@ class SearchService:
             ),
             "department": "담당 부서 확인 필요",
             "departments": [],
+            "departmentContacts": [],
             "paragraphSummary": (
                 self._truncate(excerpt, 180)
                 or "관련 원문 내용을 확인해 주세요."
@@ -751,6 +760,9 @@ class SearchService:
                 departments
             ),
             "departments": departments,
+            "departmentContacts": self._contacts_for_departments(
+                departments
+            ),
             "paragraphSummary": paragraph,
             "keyActions": [],
             "originalText": "",
@@ -827,6 +839,7 @@ class SearchService:
             "civilType": title,
             "department": "담당 부서 확인 필요",
             "departments": [],
+            "departmentContacts": [],
             "paragraphSummary": (
                 "상세 원문 데이터 확인이 필요합니다."
             ),
@@ -869,6 +882,105 @@ class SearchService:
             " 시",
             title,
         )
+
+    def _build_department_contact_index(
+        self,
+        cases: list[dict[str, Any]],
+    ) -> dict[str, list[str]]:
+
+        index: dict[str, list[str]] = {}
+
+        for item in cases:
+            for page in item.get(
+                "tables_by_page",
+                [],
+            ):
+                for table in page.get(
+                    "tables",
+                    [],
+                ):
+                    if not table:
+                        continue
+
+                    header = [
+                        self._clean_text(str(cell or ""))
+                        for cell in table[0]
+                    ]
+
+                    if (
+                        "담당부서" not in header
+                        or "연락처" not in header
+                    ):
+                        continue
+
+                    department_index = header.index("담당부서")
+                    contact_index = header.index("연락처")
+                    current_department = ""
+
+                    for row in table[1:]:
+                        if not isinstance(row, list):
+                            continue
+
+                        if department_index < len(row) and row[department_index]:
+                            current_department = self._clean_text(
+                                str(row[department_index])
+                            )
+
+                        if (
+                            not current_department
+                            or contact_index >= len(row)
+                        ):
+                            continue
+
+                        contact_text = str(row[contact_index] or "")
+                        phone_numbers = re.findall(
+                            r"042[)\-]611-\d{4}",
+                            contact_text,
+                        )
+
+                        if not phone_numbers:
+                            continue
+
+                        department_numbers = index.setdefault(
+                            current_department,
+                            [],
+                        )
+
+                        for phone_number in phone_numbers:
+                            normalized_phone = phone_number.replace(
+                                ")",
+                                "-",
+                            )
+
+                            if normalized_phone not in department_numbers:
+                                department_numbers.append(
+                                    normalized_phone
+                                )
+
+        return index
+
+    def _contacts_for_departments(
+        self,
+        departments: list[str],
+    ) -> list[dict[str, Any]]:
+
+        contacts = []
+
+        for department in departments:
+            phone_numbers = self.department_contact_index.get(
+                department,
+                [],
+            )
+
+            if phone_numbers:
+                contacts.append(
+                    {
+                        "department": department,
+                        "phoneNumbers": phone_numbers,
+                    }
+                )
+
+        return contacts
 
     def _manual_summary(
         self,

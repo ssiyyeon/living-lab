@@ -27,6 +27,11 @@ class DepartmentRouting(BaseModel):
     confidence: str
 
 
+class DepartmentContact(BaseModel):
+    department: str
+    phoneNumbers: List[str] = Field(default_factory=list)
+
+
 class SearchResult(BaseModel):
     id: str
     kind: str
@@ -37,6 +42,9 @@ class SearchResult(BaseModel):
 
     department: str
     departments: List[str] = Field(default_factory=list)
+    departmentContacts: List[DepartmentContact] = Field(
+        default_factory=list
+    )
 
     paragraphSummary: str
     keyActions: List[str] = Field(default_factory=list)

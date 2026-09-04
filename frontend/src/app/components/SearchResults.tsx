@@ -10,10 +10,11 @@ import {
   FileText,
   Info,
   ListChecks,
+  Phone,
   Route,
   Tag,
 } from "lucide-react";
-import type { DepartmentRouting } from "@/api/search";
+import type { DepartmentContact, DepartmentRouting } from "@/api/search";
 
 export interface SearchResult {
   id: string;
@@ -24,6 +25,7 @@ export interface SearchResult {
   civilType: string;
   department: string;
   departments: string[];
+  departmentContacts: DepartmentContact[];
   paragraphSummary: string;
   keyActions: string[];
   originalText: string;
@@ -191,6 +193,43 @@ export function SearchResults({ results, notice, relevanceNotice }: SearchResult
                         </p>
                       </div>
                     </div>
+
+                    {result.departmentContacts.length > 0 && (
+                      <div className="p-3.5 mb-4" style={{ borderRadius: "12px", background: "var(--background)" }}>
+                        <div className="flex items-center gap-1.5 mb-2.5" style={{ color: "var(--muted-foreground)" }}>
+                          <Phone className="w-3.5 h-3.5" />
+                          <span style={{ fontSize: "11px", fontWeight: 700 }}>담당 부서 연락처</span>
+                        </div>
+                        <div className="space-y-2">
+                          {result.departmentContacts.map((contact) => (
+                            <div key={contact.department} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                              <span style={{ color: "var(--foreground)", fontSize: "12px", fontWeight: 650 }}>
+                                {contact.department}
+                              </span>
+                              <div className="flex flex-wrap gap-1.5">
+                                {contact.phoneNumbers.map((phoneNumber) => (
+                                  <a
+                                    key={phoneNumber}
+                                    href={`tel:${phoneNumber}`}
+                                    aria-label={`${contact.department} ${phoneNumber} 전화 연결`}
+                                    style={{
+                                      borderRadius: "7px",
+                                      background: "var(--brand-green-light)",
+                                      color: "var(--brand-green-dark)",
+                                      fontSize: "12px",
+                                      fontWeight: 700,
+                                      padding: "3px 8px",
+                                    }}
+                                  >
+                                    {phoneNumber}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     <div className="mb-4 p-4" style={{ borderRadius: "12px", background: "var(--brand-green-light)" }}>
                       <div className="flex items-center gap-2 mb-2" style={{ color: "var(--brand-green-dark)" }}>

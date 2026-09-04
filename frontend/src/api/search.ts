@@ -4,6 +4,11 @@ export interface DepartmentRouting {
   confidence: string;
 }
 
+export interface DepartmentContact {
+  department: string;
+  phoneNumbers: string[];
+}
+
 export interface ApiSearchResult {
   id: string;
   kind: string;
@@ -12,6 +17,7 @@ export interface ApiSearchResult {
   civilType: string;
   department: string;
   departments: string[];
+  departmentContacts: DepartmentContact[];
   paragraphSummary: string;
   keyActions: string[];
   originalText: string;

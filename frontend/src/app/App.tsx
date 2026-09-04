@@ -28,6 +28,7 @@ function toSearchResult(result: ApiSearchResult, tier: string): SearchResult {
     civilType: result.civilType,
     department,
     departments: result.departments,
+    departmentContacts: result.departmentContacts,
     paragraphSummary: result.paragraphSummary,
     keyActions: result.keyActions,
     originalText: result.originalText,
