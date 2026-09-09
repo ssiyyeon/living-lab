@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowUp,
-  ClipboardCheck,
   ClipboardList,
   ClipboardPlus,
   Clock3,
@@ -16,7 +15,6 @@ import {
   PanelLeftOpen,
   PhoneCall,
   Search,
-  ShieldCheck,
   Siren,
   X,
 } from "lucide-react";
@@ -91,6 +89,21 @@ const NAV_ITEMS = [
     id: "emergency_contacts" as const,
     label: "긴급 연락망",
     icon: PhoneCall,
+  },
+];
+
+const HOME_GUIDES = [
+  {
+    id: "duty_timeline" as const,
+    label: "근무 타임라인",
+    description: "시간대별 해야 할 일",
+    icon: Clock3,
+  },
+  {
+    id: "duty_basics" as const,
+    label: "당직 기본업무",
+    description: "시건·순찰·기록·인계 확인",
+    icon: ClipboardList,
   },
 ];
 
@@ -483,19 +496,40 @@ function MainApp() {
                     ))}
                   </div>
 
-                  <div className="mt-12 grid gap-4 border-t pt-8 sm:grid-cols-3" style={{ borderColor: "var(--border)" }}>
-                    {[
-                      { icon: ClipboardCheck, title: "먼저 확인", text: "민원인에게 물어볼 핵심 정보" },
-                      { icon: ArrowRight, title: "처리 순서", text: "당직자가 지금 해야 할 조치" },
-                      { icon: ShieldCheck, title: "안내와 주의", text: "이첩 부서와 실제 응대 문구" },
-                    ].map(({ icon: Icon, title, text }) => (
-                      <div key={title} className="flex gap-3 border-l-2 px-4 py-2" style={{ borderColor: "var(--brand-green)" }}>
-                        <Icon className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
-                        <div>
-                          <p className="text-sm font-bold">{title}</p>
-                          <p className="mt-1 text-xs leading-5" style={{ color: "var(--muted-foreground)" }}>{text}</p>
-                        </div>
-                      </div>
+                  <div
+                    className="mx-auto mt-10 grid max-w-[880px] border-y sm:grid-cols-2"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    {HOME_GUIDES.map(({ id, label, description, icon: Icon }, index) => (
+                      <button
+                        key={id}
+                        type="button"
+                        onClick={() => setDrawerGuideId(id)}
+                        className={`group flex items-center gap-4 px-3 py-6 text-left transition-colors hover:text-[#036EB8] sm:px-5 ${
+                          index === 0
+                            ? "border-b sm:border-b-0 sm:border-r"
+                            : ""
+                        }`}
+                        style={{ borderColor: "var(--border)" }}
+                      >
+                        <Icon
+                          className="h-6 w-6 flex-shrink-0"
+                          style={{ color: "var(--brand-green)" }}
+                        />
+                        <span className="min-w-0 flex-1">
+                          <strong className="block text-[15px]">{label}</strong>
+                          <span
+                            className="mt-1 block text-xs"
+                            style={{ color: "var(--muted-foreground)" }}
+                          >
+                            {description}
+                          </span>
+                        </span>
+                        <ArrowRight
+                          className="h-4 w-4 flex-shrink-0 transition-transform group-hover:translate-x-1"
+                          style={{ color: "var(--brand-green)" }}
+                        />
+                      </button>
                     ))}
                   </div>
                 </>
