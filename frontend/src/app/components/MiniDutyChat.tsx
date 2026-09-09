@@ -16,6 +16,7 @@ interface ChatTurn {
   query: string;
   result?: SearchResult;
   error?: string;
+  selectedBranchIndex?: number;
 }
 
 export function MiniDutyChat() {
@@ -82,6 +83,16 @@ export function MiniDutyChat() {
     }
   };
 
+  const selectBranch = (turnId: string, branchIndex: number) => {
+    setTurns((current) =>
+      current.map((turn) =>
+        turn.id === turnId
+          ? { ...turn, selectedBranchIndex: branchIndex }
+          : turn,
+      ),
+    );
+  };
+
   return (
     <div className="h-screen min-h-[520px] bg-[#F3F4F6] p-2 text-[#18242C]">
       <section
@@ -129,7 +140,11 @@ export function MiniDutyChat() {
                   </div>
 
                   {turn.result ? (
-                    <MiniAnswer result={turn.result} />
+                    <MiniAnswer
+                      result={turn.result}
+                      selectedBranchIndex={turn.selectedBranchIndex}
+                      onSelectBranch={(branchIndex) => selectBranch(turn.id, branchIndex)}
+                    />
                   ) : (
                     <div className="mt-3 border-l-2 px-3 py-1 text-sm leading-6" style={{ borderColor: "var(--brand-red)", color: "var(--brand-red-dark)" }}>
                       {turn.error}
@@ -181,13 +196,22 @@ export function MiniDutyChat() {
   );
 }
 
-function MiniAnswer({ result }: { result: SearchResult }) {
+interface MiniAnswerProps {
+  result: SearchResult;
+  selectedBranchIndex?: number;
+  onSelectBranch: (branchIndex: number) => void;
+}
+
+function MiniAnswer({ result, selectedBranchIndex, onSelectBranch }: MiniAnswerProps) {
   const actions = result.immediateActions.length > 0
     ? result.immediateActions
     : result.guidance
       ? [result.guidance]
       : [];
   const contacts = result.departmentContacts ?? [];
+  const selectedBranch = selectedBranchIndex === undefined
+    ? undefined
+    : result.decisionBranches[selectedBranchIndex];
 
   return (
     <section className="mt-3 border-l-2 pl-3" style={{ borderColor: "var(--brand-green)" }}>
@@ -222,6 +246,52 @@ function MiniAnswer({ result }: { result: SearchResult }) {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {result.decisionBranches.length > 0 && (
+        <div className="mt-4">
+          <h3 className="text-xs font-bold">상황을 선택하세요</h3>
+          <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+            {result.decisionBranches.map((branch, index) => {
+              const isActive = selectedBranchIndex === index;
+              return (
+                <button
+                  key={branch.condition}
+                  type="button"
+                  aria-pressed={isActive}
+                  onClick={() => onSelectBranch(index)}
+                  className="shrink-0 rounded-full border px-3 py-1.5 text-[11px] font-semibold"
+                  style={{
+                    background: isActive ? "var(--brand-green)" : "#FFFFFF",
+                    borderColor: isActive ? "var(--brand-green)" : "var(--sidebar-border)",
+                    color: isActive ? "#FFFFFF" : "var(--foreground)",
+                  }}
+                >
+                  {branch.condition}
+                </button>
+              );
+            })}
+          </div>
+
+          {selectedBranch && (
+            <div className="mt-3 border-l-2 py-1 pl-3" style={{ borderColor: "var(--brand-green)" }}>
+              <p className="text-xs font-bold">{selectedBranch.condition}</p>
+              <ul className="mt-2 space-y-1.5 text-xs leading-5">
+                {selectedBranch.actions.map((action) => (
+                  <li key={action} className="flex gap-2">
+                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
+                    <span>{action}</span>
+                  </li>
+                ))}
+              </ul>
+              {selectedBranch.response && (
+                <p className="mt-2 text-xs leading-5" style={{ color: "var(--brand-green-dark)" }}>
+                  “{selectedBranch.response}”
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
