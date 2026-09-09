@@ -1,0 +1,136 @@
+{
+  "schemaVersion": "1.0.0",
+  "description": "반복 민원 유형을 실제 민원 표현에 연결하기 위한 검색 별칭과 공식 매뉴얼 연결 정보",
+  "intents": [
+    {
+      "title": "동물 사체(로드킬 등) 처리 요청",
+      "searchTerms": ["동물 사체", "로드킬 사체", "고양이 사체", "강아지 사체", "죽은 동물", "사체 치워주세요"],
+      "relatedManualCaseIds": ["manual_case_018"]
+    },
+    {
+      "title": "불법 주정차 단속 요청",
+      "searchTerms": ["불법 주차", "불법주차", "불법으로 주차", "주정차 단속", "주차 단속", "차량 단속"],
+      "relatedManualCaseIds": ["manual_case_011"]
+    },
+    {
+      "title": "가로등 고장 신고",
+      "searchTerms": ["가로등 고장", "보안등 고장", "가로등이 안 켜져요", "보안등이 꺼졌어요", "도로가 어두워요", "길이 너무 어두워요"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "불법 현수막 철거 요청",
+      "searchTerms": ["불법 현수막", "현수막 철거", "불법 광고물", "벽보 철거", "현수막 떼어주세요"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "도로 시설물 파손 신고",
+      "searchTerms": ["도로 시설물 파손", "도로 표지판 파손", "볼라드 파손", "중앙분리대 파손", "맨홀 파손"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "공원 시설물 훼손·하자 신고",
+      "searchTerms": ["공원 시설물 파손", "공원 시설 고장", "놀이터 시설 고장", "공원 벤치 파손", "공원 시설 하자"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "불법 노점상 단속 요청",
+      "searchTerms": ["불법 노점", "노점상 단속", "도로 노점", "노점 철거"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "부상 동물(고라니 등) 구조 신고",
+      "searchTerms": ["다친 고라니", "부상 야생동물", "야생동물 구조", "다친 동물 구조", "고라니 구조"],
+      "relatedManualCaseIds": ["manual_case_018"]
+    },
+    {
+      "title": "식품위생법 위반 등 영업 신고",
+      "searchTerms": ["식품위생 신고", "음식점 위생", "식중독 의심", "유통기한 위반", "비위생 음식점"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "유기동물 보호중 신고",
+      "searchTerms": ["유기동물 보호", "유기견 발견", "유기묘 발견", "길 잃은 강아지", "버려진 동물 발견"],
+      "relatedManualCaseIds": ["manual_case_013"]
+    },
+    {
+      "title": "지역 행사(축제 등) 관련 문의·소음 민원",
+      "searchTerms": ["축제 소음", "행사 소음", "지역 행사 문의", "축제 문의", "행사가 시끄러워요"],
+      "relatedManualCaseIds": ["manual_case_014"]
+    },
+    {
+      "title": "가지치기 등 수목 관리 요청",
+      "searchTerms": ["가지치기 요청", "나뭇가지 정리", "수목 정비", "가로수 가지치기", "나뭇가지 잘라주세요"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "미성년자 주류판매 단속 신고",
+      "searchTerms": ["미성년자 술 판매", "청소년 주류 판매", "노래방 미성년자", "청소년 출입 단속", "미성년자 주류판매"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "화물차 등 밤샘주차 단속 요청",
+      "searchTerms": ["화물차 밤샘주차", "대형차 밤샘주차", "밤샘주차 단속", "화물차가 밤새 주차"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "교통사고 잔해물 처리 요청",
+      "searchTerms": ["교통사고 잔해물", "사고 잔해 치워주세요", "자동차 파편", "도로 사고 잔해"],
+      "relatedManualCaseIds": ["manual_case_018"]
+    },
+    {
+      "title": "장애인 주차구역 관련 신고·문의",
+      "searchTerms": ["장애인 주차구역", "장애인 주차 신고", "장애인구역 불법주차", "장애인 주차표지"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "방치 오토바이(무번호판) 신고",
+      "searchTerms": ["방치 오토바이", "무번호판 오토바이", "버려진 오토바이", "오토바이 장기 방치"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "제설 작업 요청",
+      "searchTerms": ["제설 요청", "눈 치워주세요", "도로 결빙", "빙판길", "도로에 눈이 쌓였어요"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "나무 쓰러짐 신고",
+      "searchTerms": ["나무 쓰러짐", "쓰러진 나무", "전도된 나무", "나무가 넘어졌어요", "도로에 나무가 쓰러졌어요"],
+      "relatedManualCaseIds": ["manual_case_029"]
+    },
+    {
+      "title": "불법건축물 신고 처리결과 문의",
+      "searchTerms": ["불법건축물 처리결과", "불법 건축물 신고 결과", "무허가 건축물 문의", "건축물 신고 결과"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "반려동물(목줄 등 미착용) 단속 요청",
+      "searchTerms": ["목줄 미착용", "개 목줄 안 했어요", "반려견 목줄", "반려동물 단속", "배설물 미처리"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "생계지원금·수급자 관련 문의",
+      "searchTerms": ["생계지원금", "기초생활수급자", "수급자 문의", "긴급 생계지원", "생계비 지원"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "공사장 관련 민원·문의",
+      "searchTerms": ["공사장 민원", "공사 현장 문의", "공사 피해", "공사장 안전", "공사 때문에 피해"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "CCTV 열람·확인 문의",
+      "searchTerms": ["CCTV 열람", "CCTV 확인", "방범카메라 영상", "CCTV 영상 요청", "씨씨티비 확인"],
+      "relatedManualCaseIds": []
+    },
+    {
+      "title": "공원 행사 소음 민원",
+      "searchTerms": ["공원 행사 소음", "공원 공연 소음", "공원 축제 소음", "공원 행사가 시끄러워요"],
+      "relatedManualCaseIds": ["manual_case_014"]
+    },
+    {
+      "title": "그늘막 등 시설물 파손 신고",
+      "searchTerms": ["그늘막 파손", "그늘막 고장", "스마트 그늘막", "폭염 시설물 파손", "그늘막이 망가졌어요"],
+      "relatedManualCaseIds": []
+    }
+  ]
+}

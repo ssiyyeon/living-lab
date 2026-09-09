@@ -58,6 +58,13 @@ def load_documents():
     cases = json.load(open(BASE / "data/manual/manual_cases.json", encoding="utf-8"))
     sections = json.load(open(BASE / "data/manual/manual_sections.json", encoding="utf-8"))
     recurring = json.load(open(BASE / "data/complaints/recurring_cases.json", encoding="utf-8"))
+    intent_path = BASE / "data/complaints/search_intents.json"
+    intent_data = json.load(open(intent_path, encoding="utf-8")) if intent_path.exists() else {"intents": []}
+    intents_by_title = {
+        item["title"]: item
+        for item in intent_data.get("intents", [])
+        if item.get("title")
+    }
     action_path = BASE / "data/manual/manual_action_cases.json"
     action_data = json.load(open(action_path, encoding="utf-8")) if action_path.exists() else {"cases": []}
     actions_by_id = {
@@ -108,11 +115,22 @@ def load_documents():
             "breadcrumb": s.get("breadcrumb", []),
         })
     for i, r in enumerate(recurring):
+        intent = intents_by_title.get(r["type"], {})
+        search_terms = intent.get("searchTerms", [])
         docs.append({
             "doc_id": f"recurring_{i:03d}", "kind": "recurring_case", "title": r["type"],
             "keywords": [],
-            "bm25_text": (r["type"] + " ") * 2 + " ".join(r.get("main_departments", [])),
-            "display_text": r["type"] + " " + " ".join(r.get("main_departments", [])),
+            "bm25_text": (
+                (r["type"] + " ") * 2
+                + " ".join(r.get("main_departments", []))
+            ),
+            "display_text": (
+                r["type"]
+                + " "
+                + " ".join(search_terms)
+                + " "
+                + " ".join(r.get("main_departments", []))
+            ),
             "evidence_level": "historical_case",
             "departments": r.get("main_departments", []),
             "candidate_count": r.get("candidate_count"),

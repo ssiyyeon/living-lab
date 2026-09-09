@@ -21,11 +21,17 @@ ACTION_CASES_PATH = (
     / "manual"
     / "manual_action_cases.json"
 )
+SEARCH_INTENTS_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "complaints"
+    / "search_intents.json"
+)
 HANGUL_RUN_RE = re.compile(r"[가-힣]+")
 ALNUM_RUN_RE = re.compile(r"[A-Za-z0-9]+")
 
-# 임계치는 search/calibrate.py로 12개 질문(정답 7 + 오답 5) 실측해서 정한 값.
-# 표본이 작아 향후 실제 검색 로그가 쌓이면 재보정이 필요함(README_SEARCH.md 참고).
+# 임계치와 의도 라우팅은 search/calibrate.py의 대화형 문장 및 전체 카탈로그
+# 회귀 테스트로 검증한다. 실제 검색 로그가 쌓이면 표현을 계속 추가해 재보정한다.
 BM25_EXACT_THRESHOLD = 6.0
 HISTORICAL_BM25_THRESHOLD = 5.0
 
@@ -80,7 +86,16 @@ class SearchEngine:
             document["doc_id"]: index
             for index, document in enumerate(self.docs)
         }
+        self.recurring_index_by_title = {
+            document["title"]: index
+            for index, document in enumerate(self.docs)
+            if document["kind"] == "recurring_case"
+        }
         self.action_aliases = self._load_action_aliases()
+        (
+            self.recurring_aliases,
+            self.recurring_manual_links,
+        ) = self._load_recurring_intents()
 
     @staticmethod
     def _normalize_phrase(text):
@@ -104,27 +119,84 @@ class SearchEngine:
             if doc_index is None:
                 continue
 
-            terms = [case.get("title", ""), *case.get("searchTerms", [])]
-            for term in terms:
+            terms = [
+                (case.get("title", ""), False),
+                *(
+                    (term, True)
+                    for term in case.get("searchTerms", [])
+                ),
+            ]
+            for term, allow_reverse in terms:
                 normalized = self._normalize_phrase(term)
                 if len(normalized) >= 2:
-                    aliases.append((normalized, doc_index))
+                    aliases.append(
+                        (normalized, doc_index, allow_reverse)
+                    )
 
         return aliases
 
-    def _action_alias_match(self, query):
+    def _load_recurring_intents(self):
+        if not SEARCH_INTENTS_PATH.exists():
+            return [], {}
+
+        with SEARCH_INTENTS_PATH.open(encoding="utf-8") as file:
+            intent_data = json.load(file)
+
+        aliases = []
+        manual_links = {}
+
+        for intent in intent_data.get("intents", []):
+            title = str(intent.get("title", "")).strip()
+            doc_index = self.recurring_index_by_title.get(title)
+            if doc_index is None:
+                continue
+
+            terms = [
+                (title, False),
+                *(
+                    (term, True)
+                    for term in intent.get("searchTerms", [])
+                ),
+            ]
+
+            for term, allow_reverse in terms:
+                normalized = self._normalize_phrase(term)
+                if len(normalized) >= 2:
+                    aliases.append(
+                        (normalized, doc_index, allow_reverse)
+                    )
+
+            linked_indexes = [
+                self.doc_index_by_id[manual_id]
+                for manual_id in intent.get(
+                    "relatedManualCaseIds",
+                    [],
+                )
+                if manual_id in self.doc_index_by_id
+            ]
+            if linked_indexes:
+                manual_links[doc_index] = linked_indexes
+
+        return aliases, manual_links
+
+    def _alias_match(self, query, aliases):
         normalized_query = self._normalize_phrase(query)
         if len(normalized_query) < 2:
             return None
 
         matches = []
-        for alias, doc_index in self.action_aliases:
+        for alias, doc_index, allow_reverse in aliases:
             if alias == normalized_query:
-                score = 200 + len(alias)
+                score = 400 + len(alias)
             elif alias in normalized_query:
-                score = 150 + len(alias)
-            elif normalized_query in alias:
-                score = 100 + len(normalized_query)
+                score = 300 + len(alias)
+            elif (
+                allow_reverse
+                and normalized_query in alias
+                and len(normalized_query) >= 4
+                and len(normalized_query) / len(alias) >= 0.7
+            ):
+                score = 200 + len(normalized_query)
             else:
                 continue
 
@@ -134,6 +206,12 @@ class SearchEngine:
             return None
 
         return max(matches, key=lambda item: item[0])
+
+    def _action_alias_match(self, query):
+        return self._alias_match(query, self.action_aliases)
+
+    def _recurring_alias_match(self, query):
+        return self._alias_match(query, self.recurring_aliases)
 
     def _bm25_scores(self, query):
         return np.array(self.bm25.get_scores(tokenize(query)))
@@ -152,13 +230,70 @@ class SearchEngine:
         # 시민이 실제로 쓰는 표현(예: "야간소음", "밤에 시끄러워요")을
         # 행동 매뉴얼 사례의 명시적 별칭에 우선 연결한다. 범용 의미 검색보다
         # 오탐 가능성이 낮고, 결과에 즉시 조치·조건별 대응을 붙일 수 있다.
-        alias_match = self._action_alias_match(query)
-        if alias_match:
-            alias_score, doc_index = alias_match
-            bm25_scores[doc_index] = alias_score
+        action_match = self._action_alias_match(query)
+        recurring_match = self._recurring_alias_match(query)
+
+        if action_match:
+            action_score, action_index = action_match
+            scored = [(action_score, action_index)]
+            related_indexes = set()
+            bm25_scores[action_index] = action_score
+
+            if recurring_match:
+                recurring_score, recurring_index = recurring_match
+                linked_manual_indexes = self.recurring_manual_links.get(
+                    recurring_index,
+                    [],
+                )
+                if action_index in linked_manual_indexes:
+                    reference_score = min(
+                        recurring_score,
+                        action_score - 1,
+                    )
+                    bm25_scores[recurring_index] = reference_score
+                    scored.append(
+                        (reference_score, recurring_index)
+                    )
+                    related_indexes.add(recurring_index)
+
             return self._format(
-                [(alias_score, doc_index)],
+                scored,
                 "manual_exact",
+                bm25_scores,
+                emb_scores,
+                related_indexes=related_indexes,
+            )
+
+        # 반복민원 유형의 제목·별칭은 일반 BM25보다 먼저 판별한다. 이렇게 해야
+        # "가로등 고장 신고"가 공통어인 "고장·신고" 때문에 무인민원발급기
+        # 사례로 잘못 가는 문제를 막을 수 있다.
+        if recurring_match:
+            recurring_score, recurring_index = recurring_match
+            linked_manual_indexes = self.recurring_manual_links.get(
+                recurring_index,
+                [],
+            )
+
+            if linked_manual_indexes:
+                manual_index = linked_manual_indexes[0]
+                manual_score = recurring_score + 1
+                bm25_scores[manual_index] = manual_score
+                bm25_scores[recurring_index] = recurring_score
+                return self._format(
+                    [
+                        (manual_score, manual_index),
+                        (recurring_score, recurring_index),
+                    ],
+                    "manual_exact",
+                    bm25_scores,
+                    emb_scores,
+                    related_indexes={recurring_index},
+                )
+
+            bm25_scores[recurring_index] = recurring_score
+            return self._format(
+                [(recurring_score, recurring_index)],
+                "historical_case",
                 bm25_scores,
                 emb_scores,
             )
@@ -189,17 +324,28 @@ class SearchEngine:
         # 4) 폴백
         return {"tier": "no_match", "message": "관련 매뉴얼/참고사례를 찾지 못했습니다. 담당부서에 직접 문의해주세요.", "results": []}
 
-    def _format(self, scored, tier, bm25_scores, emb_scores):
+    def _format(
+        self,
+        scored,
+        tier,
+        bm25_scores,
+        emb_scores,
+        related_indexes=None,
+    ):
+        related_indexes = related_indexes or set()
         results = []
         for score, i in scored:
             d = self.docs[i]
-            results.append({
+            result = {
                 "doc_id": d["doc_id"], "kind": d["kind"], "title": d["title"],
                 "evidence_level": d["evidence_level"],
                 "score": round(float(score), 3),
                 "bm25_score": round(float(bm25_scores[i]), 3),
                 "embedding_score": round(float(emb_scores[i]), 3),
-            })
+            }
+            if i in related_indexes:
+                result["related_reference"] = True
+            results.append(result)
         return {"tier": tier, "results": results}
 
 

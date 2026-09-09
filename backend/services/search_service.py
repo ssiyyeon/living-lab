@@ -248,8 +248,16 @@ class SearchService:
             raw_results
         )
 
-        # 이 서비스는 문서 후보 목록이 아니라 가장 적합한 대응 절차 하나를 제공한다.
-        raw_results = raw_results[:1]
+        # 기본 화면에는 가장 적합한 대응 절차 하나만 제공한다. 다만 공식 매뉴얼과
+        # 동일 주제의 과거 처리사례가 명시적으로 연결된 경우에는 참고 근거 한 건을
+        # 함께 내려 보내 두 근거의 성격을 구분해 볼 수 있게 한다.
+        has_related_reference = any(
+            item.get("related_reference")
+            for item in raw_results[1:]
+        )
+        raw_results = raw_results[
+            : 2 if has_related_reference else 1
+        ]
 
         if not raw_results:
             return self._empty_response(
@@ -532,10 +540,18 @@ class SearchService:
         )
 
         # 행동 데이터가 붙은 공식 사례가 1순위라면, OCR 원문 조각과
-        # 낮은 점수의 참고 문서를 함께 노출하지 않는다. 사용자는 여러
-        # 문서 후보보다 바로 실행할 수 있는 한 가지 대응 절차가 필요하다.
+        # 낮은 점수의 참고 문서는 숨긴다. 단, 검색 의도 데이터에서 같은
+        # 주제로 직접 연결한 과거 처리사례 한 건은 근거 비교용으로 유지한다.
         if first_id in self.manual_actions:
-            return [first_result]
+            related_references = [
+                item
+                for item in results[1:]
+                if item.get("related_reference")
+            ]
+            return [
+                first_result,
+                *related_references[:1],
+            ]
 
         return results
 

@@ -44,12 +44,14 @@ export function SearchResults({ results, emptyMessage }: SearchResultsProps) {
   const isOfficial = result.evidenceLevel === "official_manual";
   const evidenceLabel = isOfficial ? "공식 매뉴얼" : "과거 처리사례 기반";
   const departmentContacts = result.departmentContacts ?? [];
+  const relatedResults = results.slice(1);
 
   return (
-    <article
-      className="overflow-hidden rounded-2xl border bg-white"
-      style={{ borderColor: "var(--border)" }}
-    >
+    <>
+      <article
+        className="overflow-hidden rounded-2xl border bg-white"
+        style={{ borderColor: "var(--border)" }}
+      >
       <div className="border-b px-6 py-6 sm:px-8" style={{ borderColor: "var(--border)" }}>
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
@@ -244,6 +246,42 @@ export function SearchResults({ results, emptyMessage }: SearchResultsProps) {
           {result.note && <p>{result.note}</p>}
         </div>
       </details>
-    </article>
+      </article>
+
+      {relatedResults.length > 0 && (
+        <details
+          className="group mt-3 rounded-xl border bg-white px-5 py-4 text-sm"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold">
+            <BookOpen className="h-4 w-4" style={{ color: "var(--brand-green)" }} />
+            함께 확인할 과거 처리사례
+            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-4 space-y-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            {relatedResults.map((related) => (
+              <div key={related.id}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="rounded-full border px-2 py-0.5 text-[10px] font-bold"
+                    style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}
+                  >
+                    과거 처리사례 기반
+                  </span>
+                  <p className="font-bold">{related.civilType}</p>
+                </div>
+                <p className="mt-2 text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
+                  {related.paragraphSummary}
+                </p>
+                <p className="mt-2 text-xs font-semibold">
+                  이첩 사례: {related.department}
+                  {related.candidateCount ? ` · ${related.candidateCount.toLocaleString()}건` : ""}
+                </p>
+              </div>
+            ))}
+          </div>
+        </details>
+      )}
+    </>
   );
 }
