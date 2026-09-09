@@ -1052,6 +1052,19 @@ class SearchService:
             ):
                 continue
 
+            raw_condition = str(
+                route.get(
+                    "condition",
+                    "",
+                )
+            )
+            raw_confidence = str(
+                route.get(
+                    "confidence",
+                    "",
+                )
+            )
+
             routing.append(
                 {
                     "department": str(
@@ -1060,17 +1073,11 @@ class SearchService:
                             "",
                         )
                     ),
-                    "condition": str(
-                        route.get(
-                            "condition",
-                            "",
-                        )
+                    "condition": self._routing_condition_label(
+                        raw_condition
                     ),
-                    "confidence": str(
-                        route.get(
-                            "confidence",
-                            "",
-                        )
+                    "confidence": self._routing_confidence_label(
+                        raw_confidence
                     ),
                 }
             )
@@ -1171,6 +1178,41 @@ class SearchService:
                 "과거 이첩 사례에 따른 안내이므로 최종 소관과 조치는 담당 부서가 판단한다."
             ],
         }
+
+    def _routing_condition_label(
+        self,
+        condition: str,
+    ) -> str:
+
+        # department_routing.condition은 표본 번호와 판단 근거까지 담은
+        # 데이터 검수용 필드다. 화면 버튼에는 첫 업무 조건만 짧게 노출한다.
+        label = re.split(
+            r"\s*[\(\[]",
+            condition,
+            maxsplit=1,
+        )[0]
+        label = re.split(
+            r"[.。]\s*",
+            label,
+            maxsplit=1,
+        )[0]
+
+        return label.strip(
+            " \t\r\n.,-"
+        ) or "해당 조건"
+
+    def _routing_confidence_label(
+        self,
+        confidence: str,
+    ) -> str:
+
+        if confidence.startswith("높음"):
+            return "높음"
+
+        if confidence.startswith("낮음"):
+            return "실무 확인 필요"
+
+        return confidence
 
     def _fallback_result(
         self,
