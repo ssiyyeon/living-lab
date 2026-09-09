@@ -3,6 +3,7 @@ import {
   ArrowRight,
   ArrowUp,
   ClipboardCheck,
+  ClipboardList,
   ClipboardPlus,
   Clock3,
   Loader2,
@@ -13,8 +14,10 @@ import {
   NotebookPen,
   PanelLeftClose,
   PanelLeftOpen,
+  PhoneCall,
   Search,
   ShieldCheck,
+  Siren,
   X,
 } from "lucide-react";
 import { SearchResults } from "./components/SearchResults";
@@ -41,7 +44,17 @@ type ViewId =
   | "response"
   | "duty_timeline"
   | "duty_log"
-  | "complaint_registration";
+  | "complaint_registration"
+  | "duty_basics"
+  | "disaster_response"
+  | "emergency_contacts";
+
+const DRAWER_GUIDE_IDS = new Set<ViewId>([
+  "duty_timeline",
+  "duty_basics",
+  "disaster_response",
+  "emergency_contacts",
+]);
 
 const NAV_ITEMS = [
   {
@@ -63,6 +76,21 @@ const NAV_ITEMS = [
     id: "complaint_registration" as const,
     label: "당직민원 등록",
     icon: ClipboardPlus,
+  },
+  {
+    id: "duty_basics" as const,
+    label: "당직 기본업무",
+    icon: ClipboardList,
+  },
+  {
+    id: "disaster_response" as const,
+    label: "재난·비상 대응",
+    icon: Siren,
+  },
+  {
+    id: "emergency_contacts" as const,
+    label: "긴급 연락망",
+    icon: PhoneCall,
   },
 ];
 
@@ -268,7 +296,7 @@ function MainApp() {
             </div>
             <nav className={`flex-1 overflow-y-auto py-2 ${isSidebarOpen ? "px-4" : "px-2"}`} aria-label="업무 카테고리">
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-              const isActive = id === "duty_timeline"
+              const isActive = DRAWER_GUIDE_IDS.has(id)
                 ? drawerGuideId === id
                 : activeView === id;
 
@@ -277,7 +305,7 @@ function MainApp() {
                   key={id}
                   type="button"
                   onClick={() => {
-                    if (id === "duty_timeline") {
+                    if (DRAWER_GUIDE_IDS.has(id)) {
                       setDrawerGuideId(id);
                     } else {
                       setDrawerGuideId(null);
@@ -289,8 +317,11 @@ function MainApp() {
                   title={isSidebarOpen ? undefined : label}
                   className={`flex w-full items-center py-3.5 text-left transition-colors hover:text-[#036EB8] ${
                     isSidebarOpen ? "gap-3 px-2" : "justify-center px-0"
-                  }`}
-                  style={{ color: isActive ? "var(--brand-green)" : "var(--foreground)" }}
+                  } ${id === "duty_basics" ? "mt-2 border-t pt-5" : ""}`}
+                  style={{
+                    borderColor: id === "duty_basics" ? "var(--sidebar-border)" : undefined,
+                    color: isActive ? "var(--brand-green)" : "var(--foreground)",
+                  }}
                 >
                   <Icon className="h-5 w-5 flex-shrink-0" />
                   {isSidebarOpen && <span className="whitespace-nowrap text-sm font-bold">{label}</span>}
@@ -305,11 +336,11 @@ function MainApp() {
             )}
       </aside>
 
-      {drawerGuideId === "duty_timeline" && (
+      {drawerGuideId && (
         <>
           <button
             type="button"
-            aria-label="근무 타임라인 닫기"
+            aria-label={`${drawerGuide?.title ?? "업무 안내"} 닫기`}
             className="fixed inset-0 z-40"
             onClick={() => setDrawerGuideId(null)}
           />
@@ -317,7 +348,7 @@ function MainApp() {
             id="guide-drawer"
             role="dialog"
             aria-modal="true"
-            aria-label="근무 타임라인"
+            aria-label={drawerGuide?.title ?? "업무 안내"}
             className="fixed bottom-3 right-3 top-3 z-50 flex w-[min(520px,calc(100vw-24px))] flex-col overflow-hidden rounded-3xl border-2 bg-white"
             style={{ borderColor: "var(--brand-green)" }}
           >
@@ -332,12 +363,12 @@ function MainApp() {
                 >
                   공식 매뉴얼
                 </span>
-                <h2 className="mt-2 text-xl font-extrabold">근무 타임라인</h2>
+                <h2 className="mt-2 text-xl font-extrabold">{drawerGuide?.title ?? "업무 안내"}</h2>
               </div>
               <button
                 type="button"
                 onClick={() => setDrawerGuideId(null)}
-                aria-label="근무 타임라인 닫기"
+                aria-label={`${drawerGuide?.title ?? "업무 안내"} 닫기`}
                 className="inline-flex h-10 w-10 items-center justify-center rounded-xl border bg-white transition-colors hover:bg-[#EAF6FC]"
                 style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}
               >
@@ -357,7 +388,7 @@ function MainApp() {
                   {guideError || (
                     <span className="inline-flex items-center gap-3">
                       <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--brand-green)" }} />
-                      근무 타임라인을 불러오고 있습니다.
+                      업무 안내를 불러오고 있습니다.
                     </span>
                   )}
                 </div>
@@ -371,7 +402,7 @@ function MainApp() {
                 className="w-full rounded-xl py-3 text-sm font-bold text-white"
                 style={{ background: "var(--brand-green)" }}
               >
-                확인했어요
+                닫기
               </button>
             </div>
           </aside>

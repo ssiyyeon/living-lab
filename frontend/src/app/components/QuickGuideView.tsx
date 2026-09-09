@@ -1,4 +1,11 @@
-import { AlertTriangle, BookOpen, CheckCircle2, Clock3 } from "lucide-react";
+import {
+  AlertTriangle,
+  BookOpen,
+  CheckCircle2,
+  Clock3,
+  LockKeyhole,
+  PhoneCall,
+} from "lucide-react";
 import type { QuickGuide } from "../api/search";
 
 interface QuickGuideViewProps {
@@ -7,10 +14,32 @@ interface QuickGuideViewProps {
   compact?: boolean;
 }
 
+function formatPageLabel(pages: number[]) {
+  if (pages.length === 0) return "쪽수 확인 필요";
+
+  const sortedPages = [...new Set(pages)].sort((a, b) => a - b);
+  const ranges: string[] = [];
+  let rangeStart = sortedPages[0];
+  let previousPage = sortedPages[0];
+
+  for (const page of sortedPages.slice(1)) {
+    if (page === previousPage + 1) {
+      previousPage = page;
+      continue;
+    }
+
+    ranges.push(rangeStart === previousPage ? `${rangeStart}` : `${rangeStart}-${previousPage}`);
+    rangeStart = page;
+    previousPage = page;
+  }
+
+  ranges.push(rangeStart === previousPage ? `${rangeStart}` : `${rangeStart}-${previousPage}`);
+  return `${ranges.join(", ")}쪽`;
+}
+
 export function QuickGuideView({ guide, source, compact = false }: QuickGuideViewProps) {
-  const pageLabel = guide.sourcePages.length === 1
-    ? `${guide.sourcePages[0]}쪽`
-    : `${Math.min(...guide.sourcePages)}-${Math.max(...guide.sourcePages)}쪽`;
+  const pageLabel = formatPageLabel(guide.sourcePages);
+  const contactGroups = [...new Set((guide.contacts ?? []).map((contact) => contact.group))];
 
   if (compact) {
     return (
@@ -56,6 +85,60 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
             </section>
           ))}
         </div>
+
+        {contactGroups.length > 0 && (
+          <section className="mt-5 border-t pt-5" style={{ borderColor: "var(--border)" }}>
+            <h2 className="flex items-center gap-2 text-sm font-bold">
+              <PhoneCall className="h-4 w-4" style={{ color: "var(--brand-green)" }} />
+              공개 연락처
+            </h2>
+            <div className="mt-3 space-y-5">
+              {contactGroups.map((group) => (
+                <div key={group}>
+                  <p className="mb-2 text-[11px] font-bold" style={{ color: "var(--muted-foreground)" }}>
+                    {group}
+                  </p>
+                  <div className="divide-y rounded-2xl border bg-white px-4" style={{ borderColor: "var(--border)" }}>
+                    {(guide.contacts ?? [])
+                      .filter((contact) => contact.group === group)
+                      .map((contact) => (
+                        <a
+                          key={`${contact.organization}-${contact.label}-${contact.phone}`}
+                          href={`tel:${contact.phone}`}
+                          className="flex items-center justify-between gap-3 py-3.5"
+                          style={{ borderColor: "var(--border)" }}
+                        >
+                          <span className="min-w-0">
+                            <strong className="block text-[13px]">{contact.organization}</strong>
+                            <span className="mt-0.5 block text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                              {contact.label}
+                            </span>
+                          </span>
+                          <span className="flex-shrink-0 text-[13px] font-bold" style={{ color: "var(--brand-green)" }}>
+                            {contact.phone}
+                          </span>
+                        </a>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {guide.restrictedNotice && (
+          <section className="mt-4 rounded-2xl border border-dashed bg-white p-4" style={{ borderColor: "var(--sidebar-border)" }}>
+            <div className="flex gap-3">
+              <LockKeyhole className="mt-0.5 h-4.5 w-4.5 flex-shrink-0" style={{ color: "var(--muted-foreground)" }} />
+              <div>
+                <h2 className="text-sm font-bold">비공개 연락망</h2>
+                <p className="mt-1.5 text-xs leading-5" style={{ color: "var(--muted-foreground)" }}>
+                  {guide.restrictedNotice}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {guide.cautions.length > 0 && (
           <section className="mt-4 rounded-2xl border p-4" style={{ background: "var(--brand-red-light)", borderColor: "var(--brand-red)" }}>
@@ -136,6 +219,59 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
             </section>
           ))}
         </div>
+
+        {contactGroups.length > 0 && (
+          <section className="mt-7 border-t pt-6" style={{ borderColor: "var(--border)" }}>
+            <h2 className="flex items-center gap-2 font-bold">
+              <PhoneCall className="h-5 w-5" style={{ color: "var(--brand-green)" }} />
+              공개 연락처
+            </h2>
+            <div className="mt-4 space-y-6">
+              {contactGroups.map((group) => (
+                <div key={group}>
+                  <p className="mb-2 text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>
+                    {group}
+                  </p>
+                  <div className="grid gap-px overflow-hidden rounded-xl border sm:grid-cols-2" style={{ background: "var(--border)", borderColor: "var(--border)" }}>
+                    {(guide.contacts ?? [])
+                      .filter((contact) => contact.group === group)
+                      .map((contact) => (
+                        <a
+                          key={`${contact.organization}-${contact.label}-${contact.phone}`}
+                          href={`tel:${contact.phone}`}
+                          className="flex items-center justify-between gap-3 bg-white px-4 py-4"
+                        >
+                          <span className="min-w-0">
+                            <strong className="block text-sm">{contact.organization}</strong>
+                            <span className="mt-1 block text-xs" style={{ color: "var(--muted-foreground)" }}>
+                              {contact.label}
+                            </span>
+                          </span>
+                          <span className="flex-shrink-0 text-sm font-bold" style={{ color: "var(--brand-green)" }}>
+                            {contact.phone}
+                          </span>
+                        </a>
+                      ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {guide.restrictedNotice && (
+          <section className="mt-5 rounded-xl border border-dashed bg-white p-5" style={{ borderColor: "var(--sidebar-border)" }}>
+            <div className="flex gap-3">
+              <LockKeyhole className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--muted-foreground)" }} />
+              <div>
+                <h2 className="font-bold">비공개 연락망</h2>
+                <p className="mt-2 text-sm leading-6" style={{ color: "var(--muted-foreground)" }}>
+                  {guide.restrictedNotice}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {guide.cautions.length > 0 && (
           <section className="mt-6 rounded-xl border p-5" style={{ background: "var(--brand-red-light)", borderColor: "var(--brand-red)" }}>

@@ -70,6 +70,13 @@ export interface QuickGuideSection {
   steps: string[];
 }
 
+export interface QuickGuideContact {
+  group: string;
+  organization: string;
+  label: string;
+  phone: string;
+}
+
 export interface QuickGuide {
   id: string;
   title: string;
@@ -77,6 +84,8 @@ export interface QuickGuide {
   sourcePages: number[];
   sections: QuickGuideSection[];
   cautions: string[];
+  contacts: QuickGuideContact[];
+  restrictedNotice: string | null;
 }
 
 export interface QuickGuideListResponse {

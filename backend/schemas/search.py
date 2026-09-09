@@ -52,6 +52,13 @@ class QuickGuideSection(BaseModel):
     steps: List[str] = Field(default_factory=list)
 
 
+class QuickGuideContact(BaseModel):
+    group: str
+    organization: str
+    label: str
+    phone: str
+
+
 class QuickGuide(BaseModel):
     id: str
     title: str
@@ -59,6 +66,8 @@ class QuickGuide(BaseModel):
     sourcePages: List[int] = Field(default_factory=list)
     sections: List[QuickGuideSection] = Field(default_factory=list)
     cautions: List[str] = Field(default_factory=list)
+    contacts: List[QuickGuideContact] = Field(default_factory=list)
+    restrictedNotice: Optional[str] = None
 
 
 class QuickGuideListResponse(BaseModel):
