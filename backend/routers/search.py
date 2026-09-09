@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from backend.schemas.search import (
+    QuickGuideListResponse,
     SearchRequest,
     SearchResponse,
 )
@@ -15,6 +16,17 @@ router = APIRouter(
     prefix="/api",
     tags=["search"],
 )
+
+
+@router.get(
+    "/guides",
+    response_model=QuickGuideListResponse,
+)
+def list_quick_guides() -> QuickGuideListResponse:
+
+    return QuickGuideListResponse(
+        **search_service.get_quick_guides()
+    )
 
 
 @router.post(

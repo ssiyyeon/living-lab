@@ -1,286 +1,249 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  FileText,
-  Tag,
+  AlertTriangle,
+  BookOpen,
   Building2,
-  AlignLeft,
-  Info,
-  AlertCircle,
-  ExternalLink,
+  CheckCircle2,
   ChevronDown,
-  ChevronUp,
-  Clock,
+  ClipboardList,
+  MessageSquareText,
+  PhoneCall,
 } from "lucide-react";
+import type { SearchResult } from "../api/search";
 
-export interface SearchResult {
-  id: string;
-  category: string;
-  documentName: string;
-  civilType: string;
-  department: string;
-  paragraphSummary: string;
-  guidance: string;
-  note: string;
-  updatedAt: string;
-  relevance: number;
-  tags: string[];
+interface SearchResultsProps {
+  results: SearchResult[];
+  emptyMessage?: string;
 }
 
-// API 연결 전 화면 동작을 확인하기 위한 샘플 결과입니다.
-const SAMPLE_RESULTS: SearchResult[] = [
-  {
-    id: "1",
-    category: "생활 불편",
-    documentName: "야간 민원 처리 지침 (2024년 개정)",
-    civilType: "생활 불편 신고",
-    department: "총무과",
-    paragraphSummary:
-      "야간 시간대(18:00~09:00)에 접수된 생활 불편 민원은 당직자가 1차 접수하여 소관 부서에 다음 날 오전 9시까지 이관한다. 긴급 사안의 경우 즉시 해당 부서장에게 유선 보고한다.",
-    guidance:
-      "민원인에게 접수 번호를 발급하고, 처리 예정일을 안내한 뒤 시스템에 기록한다.",
-    note: "소음·악취 등 환경 관련 민원은 환경과(내선 1523)로 즉시 연계.",
-    updatedAt: "2024-11-15",
-    relevance: 98,
-    tags: ["야간민원", "생활불편", "당직처리", "긴급대응"],
-  },
-  {
-    id: "2",
-    category: "건축·토지",
-    documentName: "건축·토지 민원 안내 매뉴얼",
-    civilType: "건축 허가 문의",
-    department: "건축과",
-    paragraphSummary:
-      "건축 허가 관련 문의는 건축과 인허가팀(담당자: 이수진, 내선 2341)으로 안내한다. 야간·주말에는 민원 처리 불가 사항을 명확히 고지하고, 다음 근무일 방문을 유도한다.",
-    guidance:
-      "건축물 용도변경, 증·개축 관련 사항은 건축과 소관이며, 토지분할은 지적과로 안내.",
-    note: "허가 처리 기간: 소규모 14일, 일반 30일, 복합민원 최대 60일.",
-    updatedAt: "2024-10-22",
-    relevance: 85,
-    tags: ["건축허가", "인허가", "토지", "처리기간"],
-  },
-  {
-    id: "3",
-    category: "도로·교통",
-    documentName: "도로·교통 시설 민원 처리 절차서",
-    civilType: "도로 파손 신고",
-    department: "도로과",
-    paragraphSummary:
-      "도로 파손·함몰 신고는 긴급 여부를 우선 확인한다. 차량 통행에 위험이 있을 경우 도로과 긴급 담당(☎ 010-XXXX-XXXX)에 즉시 연락하고, 현장 안전 조치를 요청한다.",
-    guidance:
-      "신고자에게 현장 위치(도로명, 인근 지형지물 포함)를 정확히 확인하고 기록한다.",
-    note: "국도·지방도는 도로공사(1588-2504), 고속도로는 한국도로공사(1588-2504)로 연계.",
-    updatedAt: "2024-09-08",
-    relevance: 72,
-    tags: ["도로파손", "긴급출동", "안전조치", "신고처리"],
-  },
-  {
-    id: "4",
-    category: "복지",
-    documentName: "복지 급여 및 지원 민원 안내 지침",
-    civilType: "기초생활 수급 문의",
-    department: "복지과",
-    paragraphSummary:
-      "기초생활보장 수급자 자격 문의는 복지과 소관이나, 야간에는 즉시 처리 불가. 한국복지재단 긴급복지 지원 핫라인(☎ 129)으로 우선 연계하고, 다음 날 복지과 상담을 예약한다.",
-    guidance:
-      "위기 상황(노숙, 아동방임 등)은 긴급복지지원법에 따라 즉시 관련 기관 신고 의무.",
-    note: "아동학대: 112 / 노인학대: 1577-1389 / 장애인: 1644-0935",
-    updatedAt: "2024-12-01",
-    relevance: 61,
-    tags: ["기초생활", "복지수급", "긴급복지", "위기상황"],
-  },
-];
+export function SearchResults({ results, emptyMessage }: SearchResultsProps) {
+  const result = results[0];
+  const [activeBranch, setActiveBranch] = useState(0);
 
-export function SearchResults() {
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [activeFilter, setActiveFilter] = useState("전체");
+  useEffect(() => {
+    setActiveBranch(0);
+  }, [result?.id]);
 
-  const filters = ["전체", "생활 불편", "건축·토지", "도로·교통", "복지"];
-  const visibleResults = activeFilter === "전체"
-    ? SAMPLE_RESULTS
-    : SAMPLE_RESULTS.filter((result) => result.category === activeFilter);
+  if (!result) {
+    return (
+      <div
+        className="rounded-2xl border bg-white px-6 py-12 text-center"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <p className="font-semibold">바로 안내할 대응 절차를 찾지 못했어요.</p>
+        <p className="mt-2 text-sm leading-6" style={{ color: "var(--muted-foreground)" }}>
+          {emptyMessage ?? "발생 위치와 현재 상황을 조금 더 구체적으로 입력해 주세요."}
+        </p>
+      </div>
+    );
+  }
+
+  const hasActionGuide =
+    result.intakeQuestions.length > 0 || result.immediateActions.length > 0;
+  const selectedBranch = result.decisionBranches[activeBranch];
+  const isOfficial = result.evidenceLevel === "official_manual";
+  const evidenceLabel = isOfficial ? "공식 매뉴얼" : "과거 처리사례 기반";
+  const departmentContacts = result.departmentContacts ?? [];
 
   return (
-    <div>
-      {/* Filter tabs */}
-      <div className="flex gap-2 mb-5 flex-wrap">
-        {filters.map((f) => (
-          <button
-            key={f}
-            onClick={() => setActiveFilter(f)}
-            className="px-4 py-2 transition-all duration-150"
-            style={{
-              borderRadius: "999px",
-              background: activeFilter === f ? "var(--brand-green)" : "var(--card)",
-              color: activeFilter === f ? "#fff" : "var(--muted-foreground)",
-              border: `1px solid ${activeFilter === f ? "var(--brand-green)" : "var(--border)"}`,
-              fontSize: "13px",
-              fontWeight: activeFilter === f ? 600 : 400,
-            }}
-          >
-            {f}
-          </button>
-        ))}
-      </div>
-
-      {/* Result cards */}
-      <div className="space-y-4">
-        {visibleResults.map((result, idx) => {
-          const isExpanded = expandedId === result.id;
-          return (
-            <div
-              key={result.id}
-              className="overflow-hidden transition-all duration-200"
+    <article
+      className="overflow-hidden rounded-2xl border bg-white"
+      style={{ borderColor: "var(--border)" }}
+    >
+      <div className="border-b px-6 py-6 sm:px-8" style={{ borderColor: "var(--border)" }}>
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <span
+              className="inline-flex rounded-full px-3 py-1 text-xs font-bold"
               style={{
-                borderRadius: "18px",
-                background: "var(--card)",
-                border: `1px solid ${isExpanded ? "var(--brand-green)" : "var(--border)"}`,
-                boxShadow: isExpanded
-                  ? "0 4px 20px rgba(0,0,0,0.09)"
-                  : "0 1px 6px rgba(0,0,0,0.05)",
+                background: isOfficial ? "var(--brand-green-light)" : "#FFFFFF",
+                color: isOfficial ? "var(--brand-green-dark)" : "var(--foreground)",
+                border: `1px solid ${isOfficial ? "var(--brand-green)" : "var(--border)"}`,
               }}
             >
-              <div className="px-7 py-6">
-                <div className="flex items-start gap-4">
-                  {/* Rank badge */}
-                  <div
-                    className="flex-shrink-0 w-8 h-8 flex items-center justify-center mt-0.5"
-                    style={{
-                      borderRadius: "10px",
-                      background: idx === 0 ? "var(--brand-green)" : "var(--muted)",
-                      color: idx === 0 ? "#fff" : "var(--muted-foreground)",
-                      fontSize: "13px",
-                      fontWeight: 700,
-                    }}
-                  >
-                    {idx + 1}
-                  </div>
+              {evidenceLabel}
+            </span>
+            <h2 className="mt-3 text-2xl font-extrabold">{result.civilType}</h2>
+            <p className="mt-3 max-w-2xl text-sm leading-7" style={{ color: "#4B5563" }}>
+              {result.paragraphSummary}
+            </p>
+          </div>
 
-                  <div className="flex-1 min-w-0">
-                    {/* Title row */}
-                    <div className="flex items-start justify-between gap-3 mb-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <FileText className="w-4.5 h-4.5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
-                        <p style={{ color: "var(--foreground)", fontSize: "16px", fontWeight: 700, lineHeight: 1.4 }}>
-                          {result.documentName}
-                        </p>
-                      </div>
-                      <div
-                        className="flex-shrink-0 px-3 py-1"
-                        style={{
-                          borderRadius: "999px",
-                          background: idx === 0 ? "var(--brand-green-light)" : "var(--muted)",
-                          color: idx === 0 ? "var(--brand-green-dark)" : "var(--muted-foreground)",
-                          fontSize: "12px",
-                          fontWeight: 700,
-                        }}
-                      >
-                        관련도 {result.relevance}%
-                      </div>
-                    </div>
+          <div
+            className="min-w-[240px] border-l-2 px-4 py-2 sm:max-w-[290px]"
+            style={{ borderColor: "var(--brand-green)" }}
+          >
+            <div className="flex items-center gap-3">
+              <Building2 className="h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
+              <div>
+                <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>이첩·확인 부서</p>
+                <p className="mt-0.5 text-sm font-bold">{result.department}</p>
+              </div>
+            </div>
 
-                    {/* Meta row */}
-                    <div className="flex flex-wrap items-center gap-3 mb-4">
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1" style={{ borderRadius: "8px", background: "var(--muted)", fontSize: "12px", color: "var(--muted-foreground)" }}>
-                        <Tag className="w-3 h-3" />
-                        {result.civilType}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1" style={{ borderRadius: "8px", background: "var(--muted)", fontSize: "12px", color: "var(--muted-foreground)" }}>
-                        <Building2 className="w-3 h-3" />
-                        {result.department}
-                      </span>
-                      <span className="inline-flex items-center gap-1.5" style={{ fontSize: "12px", color: "var(--muted-foreground)" }}>
-                        <Clock className="w-3 h-3" />
-                        수정 {result.updatedAt}
-                      </span>
-                    </div>
-
-                    {/* Summary */}
-                    <div className="flex gap-3 mb-4 p-4" style={{ borderRadius: "12px", background: "var(--background)" }}>
-                      <AlignLeft className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "var(--muted-foreground)", opacity: 0.5 }} />
-                      <p style={{ color: "var(--card-foreground)", fontSize: "13px", lineHeight: 1.8 }}>
-                        {result.paragraphSummary}
+            {departmentContacts.length > 0 && (
+              <div className="mt-3 space-y-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                {departmentContacts.map((contact) => (
+                  <div key={`${contact.department}-${contact.phone}`}>
+                    <p className="text-[11px] font-semibold" style={{ color: "var(--muted-foreground)" }}>
+                      {contact.label}
+                    </p>
+                    <a
+                      href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}
+                      className="mt-1 inline-flex items-center gap-2 text-sm font-extrabold"
+                      style={{ color: "var(--brand-green-dark)" }}
+                      aria-label={`${contact.label} ${contact.phone} 전화`}
+                    >
+                      <PhoneCall className="h-4 w-4" />
+                      {contact.phone}
+                    </a>
+                    {contact.note && (
+                      <p className="mt-1 text-[11px] leading-4" style={{ color: "var(--muted-foreground)" }}>
+                        {contact.note}
                       </p>
-                    </div>
-
-                    {/* Tags */}
-                    <div className="flex flex-wrap gap-1.5 mb-4">
-                      {result.tags.map((tag) => (
-                        <span
-                          key={tag}
-                          style={{
-                            borderRadius: "6px",
-                            background: "var(--brand-green-light)",
-                            color: "var(--brand-green-dark)",
-                            fontSize: "11px",
-                            fontWeight: 600,
-                            padding: "3px 10px",
-                          }}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Expanded content */}
-                    {isExpanded && (
-                      <div className="space-y-3 mb-4">
-                        <div
-                          className="p-4 flex gap-3"
-                          style={{ borderRadius: "12px", background: "#F5F5F7", borderLeft: "3px solid #636366" }}
-                        >
-                          <Info className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#636366" }} />
-                          <div>
-                            <p style={{ color: "#3A3A3C", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>처리 안내</p>
-                            <p style={{ color: "#3A3A3C", fontSize: "13px", lineHeight: 1.7 }}>{result.guidance}</p>
-                          </div>
-                        </div>
-                        <div
-                          className="p-4 flex gap-3"
-                          style={{ borderRadius: "12px", background: "#FBF9F5", borderLeft: "3px solid #C8A96E" }}
-                        >
-                          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#A07840" }} />
-                          <div>
-                            <p style={{ color: "#7A5A28", fontSize: "12px", fontWeight: 700, marginBottom: "4px" }}>참고 사항</p>
-                            <p style={{ color: "#6B4F22", fontSize: "13px", lineHeight: 1.7 }}>{result.note}</p>
-                          </div>
-                        </div>
-                      </div>
                     )}
+                  </div>
+                ))}
+                <p className="text-[10px] leading-4" style={{ color: "var(--muted-foreground)" }}>
+                  공개 업무번호 · 야간 비상연락은 당직실 비상연락망 확인
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
-                    {/* Action row */}
-                    <div className="flex items-center justify-between">
+      {hasActionGuide ? (
+        <div className="space-y-6 px-6 py-7 sm:px-8">
+          <div className="grid gap-4 md:grid-cols-2">
+            <section className="rounded-xl border p-5" style={{ borderColor: "var(--border)" }}>
+              <div className="mb-4 flex items-center gap-2">
+                <ClipboardList className="h-5 w-5" style={{ color: "var(--brand-green)" }} />
+                <h3 className="font-bold">먼저 확인하세요</h3>
+              </div>
+              <ol className="space-y-3 text-sm leading-6">
+                {result.intakeQuestions.map((question, index) => (
+                  <li key={question} className="flex gap-3">
+                    <span className="font-bold" style={{ color: "var(--brand-green)" }}>{index + 1}</span>
+                    <span>{question}</span>
+                  </li>
+                ))}
+              </ol>
+            </section>
+
+            <section className="rounded-xl border-l-2 bg-white p-5" style={{ borderColor: "var(--brand-green)" }}>
+              <div className="mb-4 flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5" style={{ color: "var(--brand-green)" }} />
+                <h3 className="font-bold" style={{ color: "var(--brand-green-dark)" }}>지금 할 일</h3>
+              </div>
+              <ul className="space-y-3 text-sm leading-6" style={{ color: "var(--brand-green-dark)" }}>
+                {result.immediateActions.map((action) => (
+                  <li key={action} className="flex gap-2">
+                    <span>•</span>
+                    <span>{action}</span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          </div>
+
+          {result.decisionBranches.length > 0 && selectedBranch && (
+            <section className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
+              <h3 className="font-bold">상황에 맞는 항목을 선택하세요</h3>
+              <div className="mt-4 grid gap-5 md:grid-cols-[230px_1fr]">
+                <div className="space-y-2">
+                  {result.decisionBranches.map((branch, index) => {
+                    const isActive = activeBranch === index;
+                    return (
                       <button
-                        onClick={() => setExpandedId(isExpanded ? null : result.id)}
-                        className="inline-flex items-center gap-1.5 transition-colors duration-150"
-                        style={{ color: "var(--muted-foreground)", fontSize: "13px" }}
-                      >
-                        {isExpanded ? (
-                          <><ChevronUp className="w-4 h-4" />접기</>
-                        ) : (
-                          <><ChevronDown className="w-4 h-4" />처리 안내 · 참고사항 보기</>
-                        )}
-                      </button>
-                      <button
-                        className="inline-flex items-center gap-2 px-5 py-2.5 transition-all duration-150"
+                        type="button"
+                        key={branch.condition}
+                        onClick={() => setActiveBranch(index)}
+                        className="w-full rounded-lg border px-4 py-3 text-left text-sm font-semibold transition-colors"
                         style={{
-                          borderRadius: "10px",
-                          background: "var(--brand-green)",
-                          color: "#fff",
-                          fontSize: "13px",
-                          fontWeight: 600,
+                          background: isActive ? "var(--brand-green)" : "#FFFFFF",
+                          color: isActive ? "#fff" : "#4B5563",
+                          borderColor: isActive ? "var(--brand-green)" : "var(--border)",
                         }}
                       >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        원문 확인
+                        {branch.condition}
                       </button>
+                    );
+                  })}
+                </div>
+
+                <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)" }}>
+                  <p className="text-base font-bold">{selectedBranch.condition}</p>
+                  <ul className="mt-4 space-y-3 text-sm leading-6">
+                    {selectedBranch.actions.map((action) => (
+                      <li key={action} className="flex gap-2">
+                        <CheckCircle2 className="mt-1 h-4 w-4 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
+                        <span>{action}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {selectedBranch.response && (
+                    <div className="mt-5 border-l-2 px-4 py-2" style={{ borderColor: "var(--brand-green)" }}>
+                      <p className="mb-1 text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>
+                        민원인 안내
+                      </p>
+                      <p className="text-sm leading-6">“{selectedBranch.response}”</p>
                     </div>
+                  )}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {result.responseScripts.length > 0 && (
+            <section className="rounded-xl border p-5" style={{ borderColor: "var(--brand-green)", background: "#FFFFFF" }}>
+              <div className="flex gap-3">
+                <MessageSquareText className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
+                <div>
+                  <h3 className="font-bold">이렇게 안내하세요</h3>
+                  {result.responseScripts.map((script) => (
+                    <p key={script} className="mt-2 text-sm leading-7">“{script}”</p>
+                  ))}
+                </div>
+              </div>
+            </section>
+          )}
+
+          {(result.escalationRules.length > 0 || result.cautions.length > 0) && (
+            <section className="rounded-xl border p-5" style={{ background: "var(--brand-red-light)", borderColor: "var(--brand-red)" }}>
+              <div className="flex gap-3">
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-red)" }} />
+                <div>
+                  <h3 className="font-bold" style={{ color: "var(--brand-red-dark)" }}>주의할 점</h3>
+                  <div className="mt-2 space-y-2 text-sm leading-6" style={{ color: "var(--brand-red-dark)" }}>
+                    {result.escalationRules.map((rule) => (
+                      <p key={rule.condition}><strong>{rule.condition}:</strong> {rule.action}</p>
+                    ))}
+                    {result.cautions.map((caution) => <p key={caution}>• {caution}</p>)}
                   </div>
                 </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
+            </section>
+          )}
+        </div>
+      ) : (
+        <div className="px-6 py-7 sm:px-8">
+          <h3 className="font-bold">처리 방법</h3>
+          <p className="mt-3 text-sm leading-7">{result.guidance}</p>
+        </div>
+      )}
+
+      <details className="group border-t px-6 py-4 text-sm sm:px-8" style={{ borderColor: "var(--border)" }}>
+        <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold" style={{ color: "var(--muted-foreground)" }}>
+          <BookOpen className="h-4 w-4" />
+          근거 확인
+          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
+        </summary>
+        <div className="mt-3 space-y-2 pl-6 text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
+          <p>{result.sourceReference || result.documentName}</p>
+          {result.note && <p>{result.note}</p>}
+        </div>
+      </details>
+    </article>
   );
 }

@@ -23,8 +23,8 @@ TEST_CASES = [
     ("가로등이 고장나서 어두워요", "historical_case", "가로등 고장 신고"),
     # 아래는 정답이 top-3 안에만 있으면 통과로 본다(순위까지는 아직 보정 안 됨 - 알려진 한계)
     ("불법으로 주차한 차 좀 단속해주세요", "manual_exact", None),
-    # 알려진 재현율 한계: 구어체라 매뉴얼 키워드와 안 겹쳐서 no_match로 빠짐(README_SEARCH.md 참고)
-    ("밤에 노래방에서 시끄러운 소리가 계속 나요", "no_match", None),
+    ("야간소음", "manual_exact", "소음 민원"),
+    ("밤에 노래방에서 시끄러운 소리가 계속 나요", "manual_exact", "소음 민원"),
     ("무단횡단하는 사람이 너무 많아요", "no_match", None),
     ("공무원이 불친절해요", "no_match", None),
     ("세금을 어디서 내나요", "no_match", None),

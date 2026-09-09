@@ -3,20 +3,23 @@
   --font-family: "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
   --font-mono: "Consolas", monospace;
 
-  --background: #f4f5f7;
-  --foreground: #1c1c1e;
+  --background: #ffffff;
+  --foreground: #18242c;
   --card: #ffffff;
-  --card-foreground: #1c1c1e;
-  --muted: #e5e5ea;
-  --muted-foreground: #8a8a8e;
-  --border: #e0e0e3;
-  --ring: #aeaeb2;
-  --sidebar: #ffffff;
-  --sidebar-foreground: #1c1c1e;
-  --sidebar-border: #e8e8ea;
-  --brand-green: #1d58cc;
-  --brand-green-light: #eaf0fb;
-  --brand-green-dark: #1440a0;
+  --card-foreground: #18242c;
+  --muted: #ffffff;
+  --muted-foreground: #60717d;
+  --border: #cfe0eb;
+  --ring: #036eb8;
+  --sidebar: #f3f4f6;
+  --sidebar-foreground: #18242c;
+  --sidebar-border: #d6d9dd;
+  --brand-green: #036eb8;
+  --brand-green-light: #ffffff;
+  --brand-green-dark: #02558e;
+  --brand-red: #e52d1f;
+  --brand-red-light: #ffffff;
+  --brand-red-dark: #ad2117;
 }
 
 @theme inline {

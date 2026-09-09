@@ -11,8 +11,15 @@ data/raw/
 
 # Python
 .venv/
+.venv-api/
 __pycache__/
 *.pyc
 
 # Search index cache
 search/index/
+
+# Package manager cache
+.pnpm-store/
+
+# Local development server logs
+tmp/

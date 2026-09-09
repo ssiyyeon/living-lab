@@ -13,9 +13,14 @@ import pickle
 from pathlib import Path
 
 import numpy as np
-from sentence_transformers import SentenceTransformer
 
 INDEX_DIR = Path(__file__).resolve().parent / "index"
+ACTION_CASES_PATH = (
+    Path(__file__).resolve().parent.parent
+    / "data"
+    / "manual"
+    / "manual_action_cases.json"
+)
 HANGUL_RUN_RE = re.compile(r"[가-힣]+")
 ALNUM_RUN_RE = re.compile(r"[A-Za-z0-9]+")
 
@@ -56,22 +61,107 @@ class SearchEngine:
         with open(INDEX_DIR / "bm25.pkl", "rb") as f:
             cache = pickle.load(f)
         self.bm25 = cache["bm25"]
-        self.embeddings = np.load(INDEX_DIR / "embeddings.npy")
-        self.model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+        self.embeddings = None
+        self.model = None
 
-        self.manual_idx = [i for i, d in enumerate(self.docs) if d["kind"] in ("manual_case", "manual_section")]
+        if ENABLE_EMBEDDING_TIER:
+            from sentence_transformers import SentenceTransformer
+
+            self.embeddings = np.load(INDEX_DIR / "embeddings.npy")
+            self.model = SentenceTransformer(
+                "paraphrase-multilingual-MiniLM-L12-v2"
+            )
+
+        # 검색 결과는 당직자가 바로 행동할 수 있는 상황별 사례만 대상으로 한다.
+        # 일반 문서 조각(manual_section)은 근거 데이터로 남기되 답변 후보에서는 제외한다.
+        self.manual_idx = [i for i, d in enumerate(self.docs) if d["kind"] == "manual_case"]
         self.recurring_idx = [i for i, d in enumerate(self.docs) if d["kind"] == "recurring_case"]
+        self.doc_index_by_id = {
+            document["doc_id"]: index
+            for index, document in enumerate(self.docs)
+        }
+        self.action_aliases = self._load_action_aliases()
+
+    @staticmethod
+    def _normalize_phrase(text):
+        return re.sub(
+            r"[^가-힣A-Za-z0-9]+",
+            "",
+            str(text),
+        ).lower()
+
+    def _load_action_aliases(self):
+        if not ACTION_CASES_PATH.exists():
+            return []
+
+        with ACTION_CASES_PATH.open(encoding="utf-8") as file:
+            action_data = json.load(file)
+
+        aliases = []
+        for case in action_data.get("cases", []):
+            doc_id = case.get("id")
+            doc_index = self.doc_index_by_id.get(doc_id)
+            if doc_index is None:
+                continue
+
+            terms = [case.get("title", ""), *case.get("searchTerms", [])]
+            for term in terms:
+                normalized = self._normalize_phrase(term)
+                if len(normalized) >= 2:
+                    aliases.append((normalized, doc_index))
+
+        return aliases
+
+    def _action_alias_match(self, query):
+        normalized_query = self._normalize_phrase(query)
+        if len(normalized_query) < 2:
+            return None
+
+        matches = []
+        for alias, doc_index in self.action_aliases:
+            if alias == normalized_query:
+                score = 200 + len(alias)
+            elif alias in normalized_query:
+                score = 150 + len(alias)
+            elif normalized_query in alias:
+                score = 100 + len(normalized_query)
+            else:
+                continue
+
+            matches.append((score, doc_index))
+
+        if not matches:
+            return None
+
+        return max(matches, key=lambda item: item[0])
 
     def _bm25_scores(self, query):
         return np.array(self.bm25.get_scores(tokenize(query)))
 
     def _embedding_scores(self, query):
+        if self.model is None or self.embeddings is None:
+            return np.zeros(len(self.docs))
+
         qvec = self.model.encode([query], normalize_embeddings=True)[0]
         return self.embeddings @ qvec
 
     def search(self, query, top_k=3):
         bm25_scores = self._bm25_scores(query)
         emb_scores = self._embedding_scores(query)
+
+        # 시민이 실제로 쓰는 표현(예: "야간소음", "밤에 시끄러워요")을
+        # 행동 매뉴얼 사례의 명시적 별칭에 우선 연결한다. 범용 의미 검색보다
+        # 오탐 가능성이 낮고, 결과에 즉시 조치·조건별 대응을 붙일 수 있다.
+        alias_match = self._action_alias_match(query)
+        if alias_match:
+            alias_score, doc_index = alias_match
+            bm25_scores[doc_index] = alias_score
+            return self._format(
+                [(alias_score, doc_index)],
+                "manual_exact",
+                bm25_scores,
+                emb_scores,
+            )
 
         # 1) 매뉴얼(케이스+일반문서) 중 BM25 확실한 일치
         manual_bm25 = [(bm25_scores[i], i) for i in self.manual_idx]

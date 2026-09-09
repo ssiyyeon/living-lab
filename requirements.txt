@@ -5,7 +5,5 @@ pandas==3.0.5
 openpyxl==3.1.5
 scikit-learn==1.9.0
 
-# search/ (하이브리드 검색: BM25 + 임베딩. 임베딩은 v1에서 비활성화 상태지만
-# 인덱스 빌드 시 sentence-transformers로 임베딩을 계산/캐시는 해둠 - search/engine.py 주석 참고)
+# search/ (v1은 검증 결과에 따라 BM25만 활성화)
 rank_bm25==0.2.2
-sentence-transformers==5.7.0
