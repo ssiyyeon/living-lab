@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowUp,
+  ChevronDown,
   ClipboardList,
   ClipboardPlus,
   Clock3,
@@ -116,6 +117,7 @@ function MainApp() {
   const [activeView, setActiveView] = useState<ViewId>("response");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [drawerGuideId, setDrawerGuideId] = useState<ViewId | null>(null);
+  const [homeGuideId, setHomeGuideId] = useState<(typeof HOME_GUIDES)[number]["id"] | null>(null);
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
@@ -173,6 +175,7 @@ function MainApp() {
 
   const selectedGuide = quickGuides.find((guide) => guide.id === activeView);
   const drawerGuide = quickGuides.find((guide) => guide.id === drawerGuideId);
+  const homeGuide = quickGuides.find((guide) => guide.id === homeGuideId);
 
   const handleSearch = async (nextQuery?: string) => {
     const searchQuery = (nextQuery ?? query).trim();
@@ -496,41 +499,76 @@ function MainApp() {
                     ))}
                   </div>
 
-                  <div
-                    className="mx-auto mt-10 grid max-w-[880px] border-y sm:grid-cols-2"
-                    style={{ borderColor: "var(--border)" }}
-                  >
-                    {HOME_GUIDES.map(({ id, label, description, icon: Icon }, index) => (
-                      <button
-                        key={id}
-                        type="button"
-                        onClick={() => setDrawerGuideId(id)}
-                        className={`group flex items-center gap-4 px-3 py-6 text-left transition-colors hover:text-[#036EB8] sm:px-5 ${
-                          index === 0
-                            ? "border-b sm:border-b-0 sm:border-r"
-                            : ""
-                        }`}
+                  <div className="mx-auto mt-10 max-w-[880px] border-y" style={{ borderColor: "var(--border)" }}>
+                    <div className="grid sm:grid-cols-2">
+                      {HOME_GUIDES.map(({ id, label, description, icon: Icon }, index) => {
+                        const isExpanded = homeGuideId === id;
+
+                        return (
+                          <button
+                            key={id}
+                            type="button"
+                            onClick={() => setHomeGuideId((current) => current === id ? null : id)}
+                            aria-expanded={isExpanded}
+                            aria-controls="home-guide-panel"
+                            className={`group flex items-center gap-4 px-3 py-6 text-left transition-colors hover:text-[#036EB8] sm:px-5 ${
+                              index === 0
+                                ? "border-b sm:border-b-0 sm:border-r"
+                                : ""
+                            }`}
+                            style={{
+                              borderColor: "var(--border)",
+                              color: isExpanded ? "var(--brand-green-dark)" : undefined,
+                            }}
+                          >
+                            <Icon
+                              className="h-6 w-6 flex-shrink-0"
+                              style={{ color: "var(--brand-green)" }}
+                            />
+                            <span className="min-w-0 flex-1">
+                              <strong className="block text-[15px]">{label}</strong>
+                              <span
+                                className="mt-1 block text-xs"
+                                style={{ color: "var(--muted-foreground)" }}
+                              >
+                                {description}
+                              </span>
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${
+                                isExpanded ? "rotate-180" : ""
+                              }`}
+                              style={{ color: "var(--brand-green)" }}
+                            />
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {homeGuideId && (
+                      <div
+                        id="home-guide-panel"
+                        className="border-t px-3 py-6 sm:px-5 sm:py-7"
                         style={{ borderColor: "var(--border)" }}
                       >
-                        <Icon
-                          className="h-6 w-6 flex-shrink-0"
-                          style={{ color: "var(--brand-green)" }}
-                        />
-                        <span className="min-w-0 flex-1">
-                          <strong className="block text-[15px]">{label}</strong>
-                          <span
-                            className="mt-1 block text-xs"
-                            style={{ color: "var(--muted-foreground)" }}
+                        {homeGuide ? (
+                          <QuickGuideView guide={homeGuide} source={quickGuideSource} compact />
+                        ) : (
+                          <div
+                            role={guideError ? "alert" : "status"}
+                            className="flex min-h-32 items-center justify-center text-center text-sm"
+                            style={{ color: guideError ? "#9B2C22" : "var(--muted-foreground)" }}
                           >
-                            {description}
-                          </span>
-                        </span>
-                        <ArrowRight
-                          className="h-4 w-4 flex-shrink-0 transition-transform group-hover:translate-x-1"
-                          style={{ color: "var(--brand-green)" }}
-                        />
-                      </button>
-                    ))}
+                            {guideError || (
+                              <span className="inline-flex items-center gap-3">
+                                <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--brand-green)" }} />
+                                업무 안내를 불러오고 있습니다.
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </>
               )}
