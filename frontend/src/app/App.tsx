@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { SearchResults } from "./components/SearchResults";
 import { QuickGuideView } from "./components/QuickGuideView";
+import { DutyTimelineDrawer } from "./components/DutyTimelineDrawer";
 import { MiniDutyChat } from "./components/MiniDutyChat";
 import { ManualCatalogView } from "./components/ManualCatalogView";
 import {
@@ -395,27 +396,34 @@ function MainApp() {
             aria-label={`${drawerGuide?.title ?? "업무 안내"} 닫기`}
             className="fixed inset-0 z-40"
             onClick={() => setDrawerGuideId(null)}
+            style={{ background: "rgba(17, 24, 39, 0.32)", backdropFilter: "blur(2px)" }}
           />
           <aside
             id="guide-drawer"
             role="dialog"
             aria-modal="true"
             aria-label={drawerGuide?.title ?? "업무 안내"}
-            className="fixed bottom-3 right-3 top-3 z-50 flex w-[min(520px,calc(100vw-24px))] flex-col overflow-hidden rounded-3xl border-2 bg-white"
-            style={{ borderColor: "var(--brand-green)" }}
+            className="fixed inset-x-0 bottom-0 z-50 flex max-h-[88vh] flex-col overflow-hidden rounded-t-3xl border bg-white sm:inset-x-auto sm:bottom-3 sm:right-3 sm:top-3 sm:max-h-none sm:w-[min(500px,calc(100vw-24px))] sm:rounded-3xl"
+            style={{ borderColor: "var(--border)" }}
           >
             <div
               className="flex items-start justify-between gap-4 border-b bg-white px-5 py-5"
               style={{ borderColor: "var(--border)" }}
             >
               <div>
-                <span
-                  className="inline-flex rounded-full border px-2.5 py-1 text-[11px] font-bold"
-                  style={{ background: "#FFFFFF", borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
+                <h2 className="text-xl font-extrabold">
+                  {drawerGuideId === "duty_timeline"
+                    ? "근무 시간대를 선택하세요"
+                    : drawerGuide?.title ?? "업무 안내"}
+                </h2>
+                <p
+                  className="mt-1.5 text-xs leading-5"
+                  style={{ color: "var(--muted-foreground)" }}
                 >
-                  공식 매뉴얼
-                </span>
-                <h2 className="mt-2 text-xl font-extrabold">{drawerGuide?.title ?? "업무 안내"}</h2>
+                  {drawerGuideId === "duty_timeline"
+                    ? "시간대를 누르면 지금 해야 할 일을 바로 확인할 수 있습니다."
+                    : drawerGuide?.description}
+                </p>
               </div>
               <button
                 type="button"
@@ -428,13 +436,19 @@ function MainApp() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4 sm:p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto pt-4 sm:pt-5">
               {drawerGuide ? (
-                <QuickGuideView guide={drawerGuide} source={quickGuideSource} compact />
+                drawerGuideId === "duty_timeline" ? (
+                  <DutyTimelineDrawer guide={drawerGuide} source={quickGuideSource} />
+                ) : (
+                  <div className="px-4 pb-5 sm:px-5">
+                    <QuickGuideView guide={drawerGuide} source={quickGuideSource} compact />
+                  </div>
+                )
               ) : (
                 <div
                   role={guideError ? "alert" : "status"}
-                  className="flex min-h-[240px] items-center justify-center rounded-2xl border bg-white px-6 text-center text-sm"
+                  className="mx-4 flex min-h-[240px] items-center justify-center rounded-2xl border bg-white px-6 text-center text-sm sm:mx-5"
                   style={{ borderColor: "var(--border)", color: guideError ? "#9B2C22" : "var(--muted-foreground)" }}
                 >
                   {guideError || (
@@ -454,7 +468,7 @@ function MainApp() {
                 className="w-full rounded-xl py-3 text-sm font-bold text-white"
                 style={{ background: "var(--brand-green)" }}
               >
-                닫기
+                확인 완료
               </button>
             </div>
           </aside>
@@ -538,15 +552,26 @@ function MainApp() {
                   <div className="mx-auto mt-10 max-w-[880px] border-y" style={{ borderColor: "var(--border)" }}>
                     <div className="grid sm:grid-cols-2">
                       {HOME_GUIDES.map(({ id, label, description, icon: Icon }, index) => {
-                        const isExpanded = homeGuideId === id;
+                        const isTimelineDrawer = id === "duty_timeline";
+                        const isExpanded = isTimelineDrawer
+                          ? drawerGuideId === id
+                          : homeGuideId === id;
 
                         return (
                           <button
                             key={id}
                             type="button"
-                            onClick={() => setHomeGuideId((current) => current === id ? null : id)}
+                            onClick={() => {
+                              if (isTimelineDrawer) {
+                                setHomeGuideId(null);
+                                setDrawerGuideId(id);
+                                return;
+                              }
+
+                              setHomeGuideId((current) => current === id ? null : id);
+                            }}
                             aria-expanded={isExpanded}
-                            aria-controls="home-guide-panel"
+                            aria-controls={isTimelineDrawer ? "guide-drawer" : "home-guide-panel"}
                             className={`group flex items-center gap-4 px-3 py-6 text-left transition-colors hover:text-[#036EB8] sm:px-5 ${
                               index === 0
                                 ? "border-b sm:border-b-0 sm:border-r"
@@ -570,12 +595,19 @@ function MainApp() {
                                 {description}
                               </span>
                             </span>
-                            <ChevronDown
-                              className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${
-                                isExpanded ? "rotate-180" : ""
-                              }`}
-                              style={{ color: "var(--brand-green)" }}
-                            />
+                            {isTimelineDrawer ? (
+                              <ArrowRight
+                                className="h-4 w-4 flex-shrink-0"
+                                style={{ color: "var(--brand-green)" }}
+                              />
+                            ) : (
+                              <ChevronDown
+                                className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 ${
+                                  isExpanded ? "rotate-180" : ""
+                                }`}
+                                style={{ color: "var(--brand-green)" }}
+                              />
+                            )}
                           </button>
                         );
                       })}
