@@ -246,6 +246,15 @@ function MainApp() {
     setSearchError("");
   };
 
+  const handleGoHome = () => {
+    setActiveView("response");
+    setDrawerGuideId(null);
+    setIsSidebarOpen(false);
+    setHomeGuideId(null);
+    handleClear();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const handleCompactSearch = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!query.trim() || isSearching) return;
@@ -290,7 +299,15 @@ function MainApp() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <img src={yusungLogo} alt="유성구 로고" className="h-10 w-auto object-contain sm:h-11" />
+            <button
+              type="button"
+              onClick={handleGoHome}
+              aria-label="민원 응대 홈으로 이동"
+              title="민원 응대 홈"
+              className="rounded-lg p-1 transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#036EB8] focus-visible:ring-offset-2"
+            >
+              <img src={yusungLogo} alt="유성구 로고" className="h-10 w-auto object-contain sm:h-11" />
+            </button>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -326,7 +343,9 @@ function MainApp() {
         id="work-sidebar"
         aria-label="업무 메뉴"
         data-state={isSidebarOpen ? "expanded" : "collapsed"}
-        className={`fixed bottom-0 left-0 top-[77px] z-50 flex flex-col bg-[var(--sidebar)] transition-[width,transform] duration-200 ease-out ${
+        className={`fixed bottom-0 left-0 top-[77px] flex flex-col bg-[var(--sidebar)] transition-[width,transform] duration-200 ease-out ${
+          drawerGuideId ? "z-30" : "z-50"
+        } ${
           isSidebarOpen
             ? "w-[260px] translate-x-0"
             : "invisible w-[260px] -translate-x-full pointer-events-none md:visible md:w-[72px] md:translate-x-0 md:pointer-events-auto"
