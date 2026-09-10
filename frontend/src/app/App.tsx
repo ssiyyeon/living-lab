@@ -10,6 +10,7 @@ import {
   Loader2,
   Menu,
   MessageSquareText,
+  MessagesSquare,
   Moon,
   NotebookPen,
   PanelLeftClose,
@@ -262,6 +263,16 @@ function MainApp() {
     void handleSearch();
   };
 
+  const openMiniChat = () => {
+    const miniChatUrl = new URL(window.location.href);
+    miniChatUrl.search = "?mini=1";
+    window.open(
+      miniChatUrl.toString(),
+      "yuseong-duty-mini-chat",
+      "popup=yes,width=430,height=720,resizable=yes,scrollbars=no",
+    )?.focus();
+  };
+
   return (
     <div
       className="min-h-screen"
@@ -298,7 +309,17 @@ function MainApp() {
               <img src={yusungLogo} alt="유성구 로고" className="h-10 w-auto object-contain sm:h-11" />
             </button>
           </div>
-          <div className="flex items-center">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={openMiniChat}
+              aria-label="미니 응대 열기"
+              title="미니 응대"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-[#F7FCFF]"
+              style={{ borderColor: "var(--brand-green)", color: "var(--brand-green)" }}
+            >
+              <MessagesSquare className="h-4.5 w-4.5" />
+            </button>
             <div
               className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold"
               style={{ background: "var(--brand-red-light)", borderColor: "var(--brand-red)", color: "var(--brand-red-dark)" }}
