@@ -318,6 +318,126 @@ class SearchService:
             "guides": list(self.quick_guides.values()),
         }
 
+    def get_manual_catalog(
+        self,
+    ) -> dict[str, Any]:
+
+        entries: list[dict[str, Any]] = []
+
+        for item in self.manual_sections.values():
+            page = item.get("page")
+            source_pages = [page] if isinstance(page, int) else []
+            content = str(item.get("content", ""))
+
+            entries.append(
+                {
+                    "id": str(item.get("id", "")),
+                    "entryType": "section",
+                    "group": self._manual_catalog_group(source_pages),
+                    "topic": str(item.get("section", "일반 참고")),
+                    "title": str(item.get("section", "매뉴얼 참고사항")),
+                    "breadcrumb": self._string_list(item.get("breadcrumb")),
+                    "sourcePages": source_pages,
+                    "departments": [],
+                    "summary": self._readable_section_summary(content, 280),
+                    "content": self._public_manual_content(content),
+                    "intakeQuestions": [],
+                    "immediateActions": [],
+                    "decisionBranches": [],
+                    "responseScripts": [],
+                    "escalationRules": [],
+                    "cautions": [],
+                }
+            )
+
+        for item in self.manual_cases.values():
+            item_id = str(item.get("id", ""))
+            action = self.manual_actions.get(item_id, {})
+            source_pages = self._page_range(
+                item.get("page_start"),
+                item.get("page_end"),
+                [page_item.get("page") for page_item in item.get("content_by_page", [])],
+            )
+            content = "\n\n".join(
+                str(page_item.get("text", ""))
+                for page_item in item.get("content_by_page", [])
+                if isinstance(page_item, dict)
+            )
+
+            entries.append(
+                {
+                    "id": item_id,
+                    "entryType": "case",
+                    "group": self._manual_catalog_group(source_pages),
+                    "topic": str(item.get("category", "상황별 대응")),
+                    "title": str(item.get("title", "상황별 대응")),
+                    "breadcrumb": self._string_list(item.get("breadcrumb")),
+                    "sourcePages": source_pages,
+                    "departments": self._string_list(
+                        action.get("departments") or item.get("departments")
+                    ),
+                    "summary": str(action.get("summary") or self._readable_section_summary(content, 280)),
+                    "content": self._public_manual_content(content),
+                    "intakeQuestions": self._string_list(action.get("intakeQuestions")),
+                    "immediateActions": self._string_list(action.get("immediateActions")),
+                    "decisionBranches": action.get("decisionBranches", []),
+                    "responseScripts": self._string_list(action.get("responseScripts")),
+                    "escalationRules": action.get("escalationRules", []),
+                    "cautions": self._string_list(action.get("cautions")),
+                }
+            )
+
+        entries.sort(
+            key=lambda entry: (
+                min(entry["sourcePages"]) if entry["sourcePages"] else 999,
+                entry["id"],
+            )
+        )
+
+        return {
+            "source": self.manual_source,
+            "totalCount": len(entries),
+            "entries": entries,
+        }
+
+    @staticmethod
+    def _manual_catalog_group(
+        pages: list[int],
+    ) -> str:
+
+        page = min(pages) if pages else 999
+
+        if page <= 15:
+            return "당직근무자 준수사항"
+        if page <= 20:
+            return "청사 보안·시건"
+        if page <= 25:
+            return "비상 발령·소집"
+        if page <= 47:
+            return "재난유형별 대응"
+        if page <= 84:
+            return "민원유형별 대응"
+        return "부록"
+
+    def _public_manual_content(
+        self,
+        content: str,
+    ) -> str:
+
+        lines: list[str] = []
+
+        for raw_line in str(content).replace("\x00", " ").splitlines():
+            line = re.sub(r"\s+", " ", raw_line).strip()
+
+            if not line or re.fullmatch(r"-\s*\d+\s*-", line):
+                continue
+
+            line = re.sub(r"[▫▪◦⦁●■ü]+", "• ", line)
+            line = re.sub(r"(?:⇨|⇒)+", "→", line)
+            lines.append(line)
+
+        return "\n".join(lines)
+
     def _contacts_for_departments(
         self,
         departments: list[str],

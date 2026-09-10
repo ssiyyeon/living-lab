@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   ArrowRight,
   ArrowUp,
+  BookOpen,
   ChevronDown,
   ClipboardList,
   ClipboardPlus,
@@ -22,9 +23,12 @@ import {
 import { SearchResults } from "./components/SearchResults";
 import { QuickGuideView } from "./components/QuickGuideView";
 import { MiniDutyChat } from "./components/MiniDutyChat";
+import { ManualCatalogView } from "./components/ManualCatalogView";
 import {
+  fetchManualCatalog,
   fetchQuickGuides,
   searchComplaints,
+  type ManualCatalogResponse,
   type QuickGuide,
   type SearchResponse,
 } from "./api/search";
@@ -46,7 +50,8 @@ type ViewId =
   | "complaint_registration"
   | "duty_basics"
   | "disaster_response"
-  | "emergency_contacts";
+  | "emergency_contacts"
+  | "full_manual";
 
 const DRAWER_GUIDE_IDS = new Set<ViewId>([
   "duty_timeline",
@@ -91,6 +96,11 @@ const NAV_ITEMS = [
     label: "긴급 연락망",
     icon: PhoneCall,
   },
+  {
+    id: "full_manual" as const,
+    label: "전체 매뉴얼",
+    icon: BookOpen,
+  },
 ];
 
 const HOME_GUIDES = [
@@ -126,6 +136,8 @@ function MainApp() {
   const [quickGuides, setQuickGuides] = useState<QuickGuide[]>([]);
   const [quickGuideSource, setQuickGuideSource] = useState("");
   const [guideError, setGuideError] = useState("");
+  const [manualCatalog, setManualCatalog] = useState<ManualCatalogResponse | null>(null);
+  const [manualCatalogError, setManualCatalogError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -149,6 +161,30 @@ function MainApp() {
       isMounted = false;
     };
   }, []);
+
+  useEffect(() => {
+    if (activeView !== "full_manual" || manualCatalog) return;
+
+    let isMounted = true;
+    setManualCatalogError("");
+
+    fetchManualCatalog()
+      .then((response) => {
+        if (isMounted) setManualCatalog(response);
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setManualCatalogError(
+          error instanceof Error
+            ? error.message
+            : "전체 매뉴얼을 불러오지 못했습니다.",
+        );
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeView, manualCatalog]);
 
   useEffect(() => {
     if (!isSidebarOpen && !drawerGuideId) return;
@@ -333,9 +369,9 @@ function MainApp() {
                   title={isSidebarOpen ? undefined : label}
                   className={`flex w-full items-center py-3.5 text-left transition-colors hover:text-[#036EB8] ${
                     isSidebarOpen ? "gap-3 px-2" : "justify-center px-0"
-                  } ${id === "duty_basics" ? "mt-2 border-t pt-5" : ""}`}
+                  } ${id === "duty_basics" || id === "full_manual" ? "mt-2 border-t pt-5" : ""}`}
                   style={{
-                    borderColor: id === "duty_basics" ? "var(--sidebar-border)" : undefined,
+                    borderColor: id === "duty_basics" || id === "full_manual" ? "var(--sidebar-border)" : undefined,
                     color: isActive ? "var(--brand-green)" : "var(--foreground)",
                   }}
                 >
@@ -594,6 +630,23 @@ function MainApp() {
                 </section>
               )}
             </>
+          ) : activeView === "full_manual" ? (
+            manualCatalog ? (
+              <ManualCatalogView catalog={manualCatalog} />
+            ) : (
+              <div
+                role={manualCatalogError ? "alert" : "status"}
+                className="flex min-h-[240px] items-center justify-center border-y px-6 text-center text-sm"
+                style={{ borderColor: "var(--border)", color: manualCatalogError ? "#9B2C22" : "var(--muted-foreground)" }}
+              >
+                {manualCatalogError || (
+                  <span className="inline-flex items-center gap-3">
+                    <Loader2 className="h-5 w-5 animate-spin" style={{ color: "var(--brand-green)" }} />
+                    전체 매뉴얼 71개 항목을 불러오고 있습니다.
+                  </span>
+                )}
+              </div>
+            )
           ) : selectedGuide ? (
             <QuickGuideView guide={selectedGuide} source={quickGuideSource} />
           ) : (

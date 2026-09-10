@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from backend.schemas.search import (
+    ManualCatalogResponse,
     QuickGuideListResponse,
     SearchRequest,
     SearchResponse,
@@ -26,6 +27,17 @@ def list_quick_guides() -> QuickGuideListResponse:
 
     return QuickGuideListResponse(
         **search_service.get_quick_guides()
+    )
+
+
+@router.get(
+    "/manual",
+    response_model=ManualCatalogResponse,
+)
+def list_manual_catalog() -> ManualCatalogResponse:
+
+    return ManualCatalogResponse(
+        **search_service.get_manual_catalog()
     )
 
 

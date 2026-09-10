@@ -93,6 +93,31 @@ export interface QuickGuideListResponse {
   guides: QuickGuide[];
 }
 
+export interface ManualCatalogEntry {
+  id: string;
+  entryType: "section" | "case";
+  group: string;
+  topic: string;
+  title: string;
+  breadcrumb: string[];
+  sourcePages: number[];
+  departments: string[];
+  summary: string;
+  content: string;
+  intakeQuestions: string[];
+  immediateActions: string[];
+  decisionBranches: DecisionBranch[];
+  responseScripts: string[];
+  escalationRules: EscalationRule[];
+  cautions: string[];
+}
+
+export interface ManualCatalogResponse {
+  source: string;
+  totalCount: number;
+  entries: ManualCatalogEntry[];
+}
+
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"
 ).replace(/\/$/, "");
@@ -152,4 +177,24 @@ export async function fetchQuickGuides(): Promise<QuickGuideListResponse> {
   }
 
   return body as QuickGuideListResponse;
+}
+
+export async function fetchManualCatalog(): Promise<ManualCatalogResponse> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/api/manual`);
+  } catch {
+    throw new Error(
+      "전체 매뉴얼을 불러올 수 없습니다. 백엔드가 실행 중인지 확인해 주세요.",
+    );
+  }
+
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error("전체 매뉴얼을 불러오지 못했습니다.");
+  }
+
+  return body as ManualCatalogResponse;
 }

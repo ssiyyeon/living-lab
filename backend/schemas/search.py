@@ -75,6 +75,31 @@ class QuickGuideListResponse(BaseModel):
     guides: List[QuickGuide] = Field(default_factory=list)
 
 
+class ManualCatalogEntry(BaseModel):
+    id: str
+    entryType: str
+    group: str
+    topic: str
+    title: str
+    breadcrumb: List[str] = Field(default_factory=list)
+    sourcePages: List[int] = Field(default_factory=list)
+    departments: List[str] = Field(default_factory=list)
+    summary: str
+    content: str
+    intakeQuestions: List[str] = Field(default_factory=list)
+    immediateActions: List[str] = Field(default_factory=list)
+    decisionBranches: List[DecisionBranch] = Field(default_factory=list)
+    responseScripts: List[str] = Field(default_factory=list)
+    escalationRules: List[EscalationRule] = Field(default_factory=list)
+    cautions: List[str] = Field(default_factory=list)
+
+
+class ManualCatalogResponse(BaseModel):
+    source: str
+    totalCount: int
+    entries: List[ManualCatalogEntry] = Field(default_factory=list)
+
+
 class SearchResult(BaseModel):
     id: str
     kind: str
