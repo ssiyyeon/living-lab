@@ -75,6 +75,24 @@ class QuickGuideListResponse(BaseModel):
     guides: List[QuickGuide] = Field(default_factory=list)
 
 
+class ContactDirectoryEntry(BaseModel):
+    id: str
+    group: str
+    organization: str
+    label: str
+    phone: str
+    note: str
+    source: str
+    sourceUrl: str
+
+
+class ContactDirectoryResponse(BaseModel):
+    source: str
+    verifiedAt: str
+    notice: str
+    contacts: List[ContactDirectoryEntry] = Field(default_factory=list)
+
+
 class ManualCatalogEntry(BaseModel):
     id: str
     entryType: str

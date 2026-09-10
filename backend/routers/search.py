@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from backend.schemas.search import (
+    ContactDirectoryResponse,
     ManualCatalogResponse,
     QuickGuideListResponse,
     SearchRequest,
@@ -38,6 +39,17 @@ def list_manual_catalog() -> ManualCatalogResponse:
 
     return ManualCatalogResponse(
         **search_service.get_manual_catalog()
+    )
+
+
+@router.get(
+    "/contacts",
+    response_model=ContactDirectoryResponse,
+)
+def list_contact_directory() -> ContactDirectoryResponse:
+
+    return ContactDirectoryResponse(
+        **search_service.get_contact_directory()
     )
 
 

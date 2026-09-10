@@ -3,6 +3,7 @@ import {
   ArrowRight,
   ArrowUp,
   BookOpen,
+  BookUser,
   ChevronDown,
   ClipboardList,
   ClipboardPlus,
@@ -23,6 +24,7 @@ import {
 import { SearchResults } from "./components/SearchResults";
 import { QuickGuideView } from "./components/QuickGuideView";
 import { DutyTimelineDrawer } from "./components/DutyTimelineDrawer";
+import { ContactDirectoryDrawer } from "./components/ContactDirectoryDrawer";
 import { MiniDutyChat } from "./components/MiniDutyChat";
 import { ManualCatalogView } from "./components/ManualCatalogView";
 import {
@@ -128,6 +130,7 @@ function MainApp() {
   const [activeView, setActiveView] = useState<ViewId>("response");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [drawerGuideId, setDrawerGuideId] = useState<ViewId | null>(null);
+  const [isContactDirectoryOpen, setIsContactDirectoryOpen] = useState(false);
   const [homeGuideId, setHomeGuideId] = useState<(typeof HOME_GUIDES)[number]["id"] | null>(null);
   const [query, setQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -188,17 +191,18 @@ function MainApp() {
   }, [activeView, manualCatalog]);
 
   useEffect(() => {
-    if (!isSidebarOpen && !drawerGuideId) return;
+    if (!isSidebarOpen && !drawerGuideId && !isContactDirectoryOpen) return;
 
     const previousOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         setIsSidebarOpen(false);
         setDrawerGuideId(null);
+        setIsContactDirectoryOpen(false);
       }
     };
 
-    const shouldLockScroll = Boolean(drawerGuideId)
+    const shouldLockScroll = Boolean(drawerGuideId || isContactDirectoryOpen)
       || (isSidebarOpen && window.matchMedia("(max-width: 767px)").matches);
 
     if (shouldLockScroll) document.body.style.overflow = "hidden";
@@ -208,7 +212,7 @@ function MainApp() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isSidebarOpen, drawerGuideId]);
+  }, [isSidebarOpen, drawerGuideId, isContactDirectoryOpen]);
 
   const selectedGuide = quickGuides.find((guide) => guide.id === activeView);
   const drawerGuide = quickGuides.find((guide) => guide.id === drawerGuideId);
@@ -249,6 +253,7 @@ function MainApp() {
   const handleGoHome = () => {
     setActiveView("response");
     setDrawerGuideId(null);
+    setIsContactDirectoryOpen(false);
     setIsSidebarOpen(false);
     setHomeGuideId(null);
     handleClear();
@@ -320,6 +325,22 @@ function MainApp() {
             >
               <MessagesSquare className="h-4.5 w-4.5" />
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                setDrawerGuideId(null);
+                setIsSidebarOpen(false);
+                setIsContactDirectoryOpen(true);
+              }}
+              aria-label="전화번호부 열기"
+              aria-expanded={isContactDirectoryOpen}
+              aria-controls="contact-directory-drawer"
+              title="전화번호부"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-[#F7FCFF]"
+              style={{ borderColor: "var(--brand-green)", color: "var(--brand-green)" }}
+            >
+              <BookUser className="h-4.5 w-4.5" />
+            </button>
             <div
               className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold"
               style={{ background: "var(--brand-red-light)", borderColor: "var(--brand-red)", color: "var(--brand-red-dark)" }}
@@ -345,7 +366,7 @@ function MainApp() {
         aria-label="업무 메뉴"
         data-state={isSidebarOpen ? "expanded" : "collapsed"}
         className={`fixed bottom-0 left-0 top-[77px] flex flex-col bg-[var(--sidebar)] transition-[width,transform] duration-200 ease-out ${
-          drawerGuideId ? "z-30" : "z-50"
+          drawerGuideId || isContactDirectoryOpen ? "z-30" : "z-50"
         } ${
           isSidebarOpen
             ? "w-[260px] translate-x-0"
@@ -379,6 +400,7 @@ function MainApp() {
                   type="button"
                   onClick={() => {
                     if (DRAWER_GUIDE_IDS.has(id)) {
+                      setIsContactDirectoryOpen(false);
                       setDrawerGuideId(id);
                     } else {
                       setDrawerGuideId(null);
@@ -492,6 +514,19 @@ function MainApp() {
               </button>
             </div>
           </aside>
+        </>
+      )}
+
+      {isContactDirectoryOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="전화번호부 닫기"
+            className="fixed inset-0 z-40"
+            onClick={() => setIsContactDirectoryOpen(false)}
+            style={{ background: "rgba(17, 24, 39, 0.32)", backdropFilter: "blur(2px)" }}
+          />
+          <ContactDirectoryDrawer onClose={() => setIsContactDirectoryOpen(false)} />
         </>
       )}
 

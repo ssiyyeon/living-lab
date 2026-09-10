@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import sys
@@ -33,6 +34,8 @@ class SearchService:
         self.quick_guides: dict[str, dict[str, Any]] = {}
         self.department_contacts: list[dict[str, Any]] = []
         self.default_department_contact: dict[str, Any] = {}
+        self.department_contact_notice = "공개된 업무용 연락처입니다."
+        self.department_contacts_verified_at = ""
         self.quick_guide_source = "당직 근무요령 및 상황별 매뉴얼"
 
         self.manual_source = "당직 근무요령 및 상황별 매뉴얼"
@@ -156,6 +159,13 @@ class SearchService:
             ]
             self.default_department_contact = dict(
                 department_contact_data.get("defaultContact") or {}
+            )
+            self.department_contact_notice = str(
+                department_contact_data.get("notice")
+                or self.department_contact_notice
+            )
+            self.department_contacts_verified_at = str(
+                department_contact_data.get("verifiedAt") or ""
             )
 
             for section in sections:
@@ -316,6 +326,97 @@ class SearchService:
         return {
             "source": self.quick_guide_source,
             "guides": list(self.quick_guides.values()),
+        }
+
+    def get_contact_directory(
+        self,
+    ) -> dict[str, Any]:
+
+        contacts: list[dict[str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+
+        def add_contact(
+            *,
+            group: str,
+            organization: str,
+            label: str,
+            phone: str,
+            note: str = "",
+            source: str,
+            source_url: str = "",
+        ) -> None:
+            normalized_phone = str(phone).strip()
+            normalized_organization = str(organization).strip()
+            normalized_label = str(label).strip()
+            key = (
+                normalized_organization,
+                normalized_label,
+                normalized_phone,
+            )
+
+            if not normalized_phone or key in seen:
+                return
+
+            seen.add(key)
+            stable_key = "|".join(key).encode("utf-8")
+            contact_id = hashlib.sha1(stable_key).hexdigest()[:12]
+            contacts.append(
+                {
+                    "id": f"contact_{contact_id}",
+                    "group": group,
+                    "organization": normalized_organization,
+                    "label": normalized_label,
+                    "phone": normalized_phone,
+                    "note": str(note).strip(),
+                    "source": source,
+                    "sourceUrl": str(source_url).strip(),
+                }
+            )
+
+        default_contact = self.default_department_contact
+        if default_contact:
+            add_contact(
+                group="대표·당직",
+                organization=str(default_contact.get("department", "유성구청")),
+                label=str(default_contact.get("label", "대표전화")),
+                phone=str(default_contact.get("phone", "")),
+                note=str(default_contact.get("note", "")),
+                source="유성구 공개 부서 연락처",
+                source_url=str(default_contact.get("sourceUrl", "")),
+            )
+
+        emergency_guide = self.quick_guides.get("emergency_contacts", {})
+        for contact in emergency_guide.get("contacts", []):
+            if not isinstance(contact, dict):
+                continue
+
+            add_contact(
+                group=str(contact.get("group", "대표·당직")),
+                organization=str(contact.get("organization", "")),
+                label=str(contact.get("label", "")),
+                phone=str(contact.get("phone", "")),
+                source=self.quick_guide_source,
+            )
+
+        for contact in self.department_contacts:
+            add_contact(
+                group="담당 부서",
+                organization=str(contact.get("department", "")),
+                label=str(contact.get("label", "")),
+                phone=str(contact.get("phone", "")),
+                note=str(contact.get("note", "")),
+                source="유성구 공개 부서 연락처",
+                source_url=str(contact.get("sourceUrl", "")),
+            )
+
+        return {
+            "source": self.quick_guide_source,
+            "verifiedAt": self.department_contacts_verified_at,
+            "notice": (
+                f"{self.department_contact_notice} "
+                "직원 개인 연락처와 비공개 비상연락망은 포함하지 않습니다."
+            ),
+            "contacts": contacts,
         }
 
     def get_manual_catalog(

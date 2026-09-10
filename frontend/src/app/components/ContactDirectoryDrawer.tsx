@@ -1,0 +1,399 @@
+import {
+  BookUser,
+  Loader2,
+  Phone,
+  Plus,
+  Search,
+  Star,
+  X,
+} from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  fetchContactDirectory,
+  type ContactDirectoryEntry,
+  type ContactDirectoryResponse,
+} from "../api/search";
+
+const PINNED_CONTACTS_KEY = "yuseong-duty-pinned-contacts-v1";
+const CUSTOM_CONTACTS_KEY = "yuseong-duty-custom-contacts-v1";
+
+const GROUP_ORDER = [
+  "내 연락처",
+  "대표·당직",
+  "구청 내부",
+  "긴급·상급기관",
+  "담당 부서",
+  "시설·유관기관",
+];
+
+interface ContactDirectoryDrawerProps {
+  onClose: () => void;
+}
+
+interface ContactFormState {
+  organization: string;
+  label: string;
+  phone: string;
+  note: string;
+}
+
+const EMPTY_FORM: ContactFormState = {
+  organization: "",
+  label: "",
+  phone: "",
+  note: "",
+};
+
+function loadStoredArray<T>(key: string): T[] {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(key) ?? "[]");
+    return Array.isArray(value) ? value : [];
+  } catch {
+    return [];
+  }
+}
+
+function ContactRow({
+  contact,
+  isPinned,
+  onTogglePin,
+}: {
+  contact: ContactDirectoryEntry;
+  isPinned: boolean;
+  onTogglePin: (id: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 bg-white px-4 py-3.5">
+      <a href={`tel:${contact.phone}`} className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-bold">{contact.organization}</span>
+        <span
+          className="mt-0.5 block truncate text-[11px]"
+          style={{ color: "var(--muted-foreground)" }}
+        >
+          {contact.label}
+          {contact.note ? ` · ${contact.note}` : ""}
+        </span>
+        <span
+          className="mt-1 block text-[13px] font-bold"
+          style={{ color: "var(--brand-green)" }}
+        >
+          {contact.phone}
+        </span>
+      </a>
+      <button
+        type="button"
+        onClick={() => onTogglePin(contact.id)}
+        aria-label={`${contact.organization} ${isPinned ? "고정 해제" : "상단에 고정"}`}
+        title={isPinned ? "고정 해제" : "상단에 고정"}
+        className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[#F7FCFF]"
+        style={{ color: isPinned ? "var(--brand-red)" : "var(--muted-foreground)" }}
+      >
+        <Star className="h-4.5 w-4.5" fill={isPinned ? "currentColor" : "none"} />
+      </button>
+      <a
+        href={`tel:${contact.phone}`}
+        aria-label={`${contact.organization} 전화 걸기`}
+        title="전화 걸기"
+        className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full border"
+        style={{ borderColor: "var(--brand-green)", color: "var(--brand-green)" }}
+      >
+        <Phone className="h-4 w-4" />
+      </a>
+    </div>
+  );
+}
+
+export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps) {
+  const [directory, setDirectory] = useState<ContactDirectoryResponse | null>(null);
+  const [loadError, setLoadError] = useState("");
+  const [query, setQuery] = useState("");
+  const [isAdding, setIsAdding] = useState(false);
+  const [form, setForm] = useState<ContactFormState>(EMPTY_FORM);
+  const [formError, setFormError] = useState("");
+  const [pinnedIds, setPinnedIds] = useState<string[]>(() =>
+    loadStoredArray<string>(PINNED_CONTACTS_KEY),
+  );
+  const [customContacts, setCustomContacts] = useState<ContactDirectoryEntry[]>(() =>
+    loadStoredArray<ContactDirectoryEntry>(CUSTOM_CONTACTS_KEY),
+  );
+
+  useEffect(() => {
+    let isMounted = true;
+
+    fetchContactDirectory()
+      .then((response) => {
+        if (isMounted) setDirectory(response);
+      })
+      .catch((error) => {
+        if (!isMounted) return;
+        setLoadError(
+          error instanceof Error ? error.message : "전화번호부를 불러오지 못했습니다.",
+        );
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem(PINNED_CONTACTS_KEY, JSON.stringify(pinnedIds));
+  }, [pinnedIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem(CUSTOM_CONTACTS_KEY, JSON.stringify(customContacts));
+  }, [customContacts]);
+
+  const allContacts = useMemo(
+    () => [...customContacts, ...(directory?.contacts ?? [])],
+    [customContacts, directory],
+  );
+
+  const filteredContacts = useMemo(() => {
+    const normalizedQuery = query.replace(/\s+/g, "").toLowerCase();
+    if (!normalizedQuery) return allContacts;
+
+    return allContacts.filter((contact) =>
+      [
+        contact.organization,
+        contact.label,
+        contact.phone,
+        contact.note,
+        contact.group,
+      ]
+        .join(" ")
+        .replace(/\s+/g, "")
+        .toLowerCase()
+        .includes(normalizedQuery),
+    );
+  }, [allContacts, query]);
+
+  const pinnedContacts = filteredContacts.filter((contact) => pinnedIds.includes(contact.id));
+  const groupedContacts = GROUP_ORDER.map((group) => ({
+    group,
+    contacts: filteredContacts.filter(
+      (contact) => contact.group === group && !pinnedIds.includes(contact.id),
+    ),
+  })).filter(({ contacts }) => contacts.length > 0);
+
+  const togglePin = (id: string) => {
+    setPinnedIds((current) =>
+      current.includes(id)
+        ? current.filter((pinnedId) => pinnedId !== id)
+        : [id, ...current],
+    );
+  };
+
+  const handleAddContact = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const organization = form.organization.trim();
+    const phone = form.phone.trim();
+
+    if (!organization || !phone) {
+      setFormError("이름과 전화번호를 입력해 주세요.");
+      return;
+    }
+
+    if (!/^[0-9+()\-\s]{2,30}$/.test(phone)) {
+      setFormError("전화번호 형식을 확인해 주세요.");
+      return;
+    }
+
+    const contact: ContactDirectoryEntry = {
+      id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      group: "내 연락처",
+      organization,
+      label: form.label.trim() || "직접 추가",
+      phone,
+      note: form.note.trim(),
+      source: "사용자 추가",
+      sourceUrl: "",
+    };
+
+    setCustomContacts((current) => [contact, ...current]);
+    setForm(EMPTY_FORM);
+    setFormError("");
+    setIsAdding(false);
+  };
+
+  return (
+    <aside
+      id="contact-directory-drawer"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="contact-directory-title"
+      className="fixed inset-x-0 bottom-0 z-50 flex max-h-[90vh] flex-col overflow-hidden rounded-t-3xl border bg-white sm:inset-x-auto sm:bottom-3 sm:right-3 sm:top-3 sm:max-h-none sm:w-[min(460px,calc(100vw-24px))] sm:rounded-3xl"
+      style={{ borderColor: "var(--border)" }}
+    >
+      <header className="flex items-start justify-between gap-4 border-b px-5 py-5" style={{ borderColor: "var(--border)" }}>
+        <div>
+          <div className="flex items-center gap-2">
+            <BookUser className="h-5 w-5" style={{ color: "var(--brand-green)" }} />
+            <h2 id="contact-directory-title" className="text-xl font-extrabold">전화번호부</h2>
+          </div>
+          <p className="mt-1.5 text-xs leading-5" style={{ color: "var(--muted-foreground)" }}>
+            매뉴얼과 공개 부서 연락처를 모았습니다.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="전화번호부 닫기"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-xl border"
+          style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </header>
+
+      <div className="border-b px-4 py-4 sm:px-5" style={{ borderColor: "var(--border)" }}>
+        <div className="flex gap-2">
+          <label className="flex min-w-0 flex-1 items-center rounded-xl border bg-white px-3" style={{ borderColor: "var(--border)" }}>
+            <Search className="mr-2 h-4 w-4 flex-shrink-0" style={{ color: "var(--muted-foreground)" }} />
+            <input
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="부서·업무·번호 검색"
+              aria-label="전화번호부 검색"
+              className="min-w-0 flex-1 bg-transparent py-2.5 text-sm outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={() => {
+              setIsAdding((current) => !current);
+              setFormError("");
+            }}
+            aria-expanded={isAdding}
+            aria-controls="contact-add-form"
+            className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold"
+            style={{ borderColor: "var(--brand-green)", color: "var(--brand-green)" }}
+          >
+            <Plus className="h-4 w-4" />
+            추가
+          </button>
+        </div>
+
+        {isAdding && (
+          <form id="contact-add-form" onSubmit={handleAddContact} className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                value={form.organization}
+                onChange={(event) => setForm((current) => ({ ...current, organization: event.target.value }))}
+                placeholder="이름 또는 기관 *"
+                aria-label="연락처 이름 또는 기관"
+                className="rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-[#036EB8]"
+                style={{ borderColor: "var(--border)" }}
+              />
+              <input
+                value={form.phone}
+                onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
+                placeholder="전화번호 *"
+                inputMode="tel"
+                aria-label="추가할 전화번호"
+                className="rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-[#036EB8]"
+                style={{ borderColor: "var(--border)" }}
+              />
+              <input
+                value={form.label}
+                onChange={(event) => setForm((current) => ({ ...current, label: event.target.value }))}
+                placeholder="담당 업무"
+                aria-label="담당 업무"
+                className="rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-[#036EB8]"
+                style={{ borderColor: "var(--border)" }}
+              />
+              <input
+                value={form.note}
+                onChange={(event) => setForm((current) => ({ ...current, note: event.target.value }))}
+                placeholder="메모"
+                aria-label="연락처 메모"
+                className="rounded-lg border px-3 py-2.5 text-sm outline-none focus:border-[#036EB8]"
+                style={{ borderColor: "var(--border)" }}
+              />
+            </div>
+            {formError && <p className="mt-2 text-xs" style={{ color: "var(--brand-red-dark)" }}>{formError}</p>}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAdding(false);
+                  setFormError("");
+                }}
+                className="rounded-lg px-3 py-2 text-xs font-bold"
+                style={{ color: "var(--muted-foreground)" }}
+              >
+                취소
+              </button>
+              <button
+                type="submit"
+                className="rounded-lg px-4 py-2 text-xs font-bold text-white"
+                style={{ background: "var(--brand-green)" }}
+              >
+                연락처 저장
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        {!directory && !loadError && (
+          <div className="flex min-h-52 items-center justify-center gap-2 text-sm" style={{ color: "var(--muted-foreground)" }}>
+            <Loader2 className="h-4.5 w-4.5 animate-spin" style={{ color: "var(--brand-green)" }} />
+            전화번호를 불러오고 있습니다.
+          </div>
+        )}
+
+        {loadError && (
+          <div role="alert" className="rounded-xl border px-4 py-4 text-sm" style={{ borderColor: "var(--brand-red)", color: "var(--brand-red-dark)" }}>
+            {loadError}
+          </div>
+        )}
+
+        {pinnedContacts.length > 0 && (
+          <section className="mb-6">
+            <h3 className="mb-2 flex items-center gap-1.5 text-xs font-extrabold" style={{ color: "var(--brand-red-dark)" }}>
+              <Star className="h-3.5 w-3.5" fill="currentColor" />
+              상단 고정
+            </h3>
+            <div className="divide-y overflow-hidden rounded-2xl border" style={{ borderColor: "var(--border)" }}>
+              {pinnedContacts.map((contact) => (
+                <ContactRow key={contact.id} contact={contact} isPinned onTogglePin={togglePin} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {groupedContacts.map(({ group, contacts }) => (
+          <section key={group} className="mb-6 last:mb-0">
+            <h3 className="mb-2 text-xs font-extrabold" style={{ color: "var(--muted-foreground)" }}>
+              {group} <span className="font-normal">{contacts.length}</span>
+            </h3>
+            <div className="divide-y overflow-hidden rounded-2xl border" style={{ borderColor: "var(--border)" }}>
+              {contacts.map((contact) => (
+                <ContactRow
+                  key={contact.id}
+                  contact={contact}
+                  isPinned={false}
+                  onTogglePin={togglePin}
+                />
+              ))}
+            </div>
+          </section>
+        ))}
+
+        {directory && filteredContacts.length === 0 && (
+          <p className="py-16 text-center text-sm" style={{ color: "var(--muted-foreground)" }}>
+            일치하는 연락처가 없습니다.
+          </p>
+        )}
+      </div>
+
+      <footer className="border-t px-5 py-3 text-[10px] leading-4" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
+        {directory?.notice ?? "공개 업무용 연락처만 표시합니다."}
+        {directory?.verifiedAt ? ` · 확인 ${directory.verifiedAt}` : ""}
+      </footer>
+    </aside>
+  );
+}

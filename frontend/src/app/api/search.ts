@@ -93,6 +93,24 @@ export interface QuickGuideListResponse {
   guides: QuickGuide[];
 }
 
+export interface ContactDirectoryEntry {
+  id: string;
+  group: string;
+  organization: string;
+  label: string;
+  phone: string;
+  note: string;
+  source: string;
+  sourceUrl: string;
+}
+
+export interface ContactDirectoryResponse {
+  source: string;
+  verifiedAt: string;
+  notice: string;
+  contacts: ContactDirectoryEntry[];
+}
+
 export interface ManualCatalogEntry {
   id: string;
   entryType: "section" | "case";
@@ -177,6 +195,26 @@ export async function fetchQuickGuides(): Promise<QuickGuideListResponse> {
   }
 
   return body as QuickGuideListResponse;
+}
+
+export async function fetchContactDirectory(): Promise<ContactDirectoryResponse> {
+  let response: Response;
+
+  try {
+    response = await fetch(`${API_BASE_URL}/api/contacts`);
+  } catch {
+    throw new Error(
+      "전화번호부를 불러올 수 없습니다. 백엔드가 실행 중인지 확인해 주세요.",
+    );
+  }
+
+  const body = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error("전화번호부를 불러오지 못했습니다.");
+  }
+
+  return body as ContactDirectoryResponse;
 }
 
 export async function fetchManualCatalog(): Promise<ManualCatalogResponse> {
