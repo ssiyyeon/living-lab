@@ -3,18 +3,34 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $frontendRoot = Join-Path $repoRoot "frontend"
 $logRoot = Join-Path $repoRoot "tmp"
-$backendPython = Join-Path $repoRoot ".venv-api\Scripts\python.exe"
+$backendPythonCandidates = @(
+    (Join-Path $repoRoot ".venv-api\Scripts\python.exe"),
+    (Join-Path $repoRoot ".venv\Scripts\python.exe")
+)
+$backendPython = $backendPythonCandidates |
+    Where-Object { Test-Path -LiteralPath $_ } |
+    Select-Object -First 1
 $viteEntry = Join-Path $frontendRoot "node_modules\vite\bin\vite.js"
 $frontendEnv = Join-Path $frontendRoot ".env.local"
+$searchIndex = Join-Path $repoRoot "search\index\docs.json"
 
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 
-if (-not (Test-Path -LiteralPath $backendPython)) {
-    throw "Backend Python not found: $backendPython"
+if (-not $backendPython) {
+    throw "Backend Python not found. Create .venv-api or .venv and install backend/requirements.txt."
 }
 
 if (-not (Test-Path -LiteralPath $viteEntry)) {
     throw "Frontend dependencies are missing. Run pnpm install in the frontend directory first."
+}
+
+if (-not (Test-Path -LiteralPath $searchIndex)) {
+    Write-Output "Search index is missing. Building it now..."
+    & $backendPython (Join-Path $repoRoot "search\build_index.py")
+
+    if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $searchIndex)) {
+        throw "Search index build failed. Check the data files and Python dependencies."
+    }
 }
 
 $apiBaseUrl = "http://localhost:8000"
