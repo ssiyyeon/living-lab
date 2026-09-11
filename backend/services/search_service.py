@@ -1636,7 +1636,7 @@ class SearchService:
 
         return index
 
-    def _contacts_for_departments(
+    def _legacy_contacts_for_departments(
         self,
         departments: list[str],
     ) -> list[dict[str, Any]]:
