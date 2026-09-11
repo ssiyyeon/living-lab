@@ -1,0 +1,258 @@
+{
+  "schemaVersion": "1.0.0",
+  "verifiedAt": "2026-09-09",
+  "notice": "공개된 업무용 연락처입니다. 야간·휴일 긴급상황은 당직실 비상연락망을 확인하세요.",
+  "defaultContact": {
+    "department": "유성구청 대표전화",
+    "label": "담당 부서 연결",
+    "phone": "042-611-2114",
+    "note": "담당 팀 번호가 확인되지 않을 때 이용",
+    "sourceUrl": "https://www.yuseong.go.kr/kor/"
+  },
+  "contacts": [
+    {
+      "department": "푸른환경과 대기환경팀",
+      "matchDepartments": ["푸른환경과 대기환경팀"],
+      "matchCaseIds": ["manual_case_014"],
+      "label": "생활소음 담당",
+      "phone": "042-611-2352",
+      "note": "온천2·노은1~3·신성·전민·구즉·관평",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_19_03/3670176/list.do"
+    },
+    {
+      "department": "푸른환경과 대기환경팀",
+      "matchDepartments": ["푸른환경과 대기환경팀"],
+      "matchCaseIds": ["manual_case_014"],
+      "label": "생활소음 담당",
+      "phone": "042-611-2374",
+      "note": "진잠·학하·원신흥·상대·온천1",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_19_03/3670176/list.do"
+    },
+    {
+      "department": "푸른환경과 수질관리팀",
+      "matchDepartments": ["푸른환경과 수질관리팀"],
+      "label": "수질오염 사고",
+      "phone": "042-611-2309",
+      "note": "수질오염 및 폐수 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_19_03/3670176/list.do"
+    },
+    {
+      "department": "건설과 도로관리팀",
+      "matchDepartments": ["건설과 도로관리팀"],
+      "matchCaseIds": ["manual_case_023"],
+      "label": "도로관리",
+      "phone": "042-611-2804",
+      "note": "포트홀·도로 시설물 민원",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_27_01.do"
+    },
+    {
+      "department": "건설과 전기팀",
+      "matchDepartments": ["건설과 전기팀"],
+      "label": "도로조명",
+      "phone": "042-611-2507",
+      "note": "가로등·보안등 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_27_01.do"
+    },
+    {
+      "department": "녹지산림과 도시숲팀",
+      "matchDepartments": ["녹지산림과 도시숲팀"],
+      "label": "도시숲·가로수",
+      "phone": "042-611-2682",
+      "note": "가로수와 도시숲 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_24_03/3670181/list.do"
+    },
+    {
+      "department": "녹지산림과 산림팀",
+      "matchDepartments": ["녹지산림과 산림팀"],
+      "label": "산림",
+      "phone": "042-611-2671",
+      "note": "산불·산림 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_24_03/3670181/list.do"
+    },
+    {
+      "department": "지역산업과 동물정책팀",
+      "matchDepartments": ["지역산업과 동물정책팀"],
+      "matchCaseIds": ["manual_case_013"],
+      "label": "유기동물 구조·이송",
+      "phone": "042-611-2785",
+      "note": "유기동물·길고양이 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_17_03/3670218/list.do"
+    },
+    {
+      "department": "지역산업과 에너지팀",
+      "matchDepartments": ["지역산업과 에너지팀"],
+      "label": "에너지",
+      "phone": "042-611-2323",
+      "note": "가스·전력 등 에너지 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_17_03/3670218/list.do"
+    },
+    {
+      "department": "건축과",
+      "matchDepartments": ["건축과", "건축과 건축1팀", "건축과 건축2팀", "건축과 도시경관팀", "건축과 건축안전팀"],
+      "label": "건축 인·허가 안내",
+      "phone": "042-611-2522",
+      "note": "주소 확인 후 관할 건축팀 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_28_01.do"
+    },
+    {
+      "department": "건설과",
+      "matchDepartments": ["건설과", "건설과 하수팀"],
+      "label": "건설과 안내",
+      "phone": "042-611-2472",
+      "note": "도로·하수·전기·노점상 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_27_01.do"
+    },
+    {
+      "department": "주차관리과",
+      "matchDepartments": ["주차관리과"],
+      "label": "주차관리과 안내",
+      "phone": "042-611-2574",
+      "note": "불법 주정차 단속·견인 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_22_01.do"
+    },
+    {
+      "department": "지역산업과",
+      "matchDepartments": ["지역산업과", "지역산업과 농축산유통팀"],
+      "label": "지역산업과 안내",
+      "phone": "042-611-2314",
+      "note": "농업·동물·에너지 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_17_01.do"
+    },
+    {
+      "department": "청소행정과",
+      "matchDepartments": ["청소행정과", "청소행정과 청소행정팀", "청소행정과 자원순환팀"],
+      "label": "청소행정과 안내",
+      "phone": "042-611-2344",
+      "note": "생활폐기물·동물사체·재활용 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_20_01.do"
+    },
+    {
+      "department": "푸른환경과",
+      "matchDepartments": ["푸른환경과", "푸른환경과 환경정책팀"],
+      "label": "푸른환경과 안내",
+      "phone": "042-611-2350",
+      "note": "환경정책·야생동물 관련 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_19_03/3670176/list.do"
+    },
+    {
+      "department": "민원여권과 민원팀",
+      "matchDepartments": ["민원여권과", "민원여권과 민원팀"],
+      "label": "민원팀",
+      "phone": "042-611-2275",
+      "note": "민원행정·무인민원발급기 관련 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_08_01.do"
+    },
+    {
+      "department": "녹지산림과",
+      "matchDepartments": ["녹지산림과"],
+      "label": "녹지산림과 안내",
+      "phone": "042-611-2683",
+      "note": "녹지·도시숲·산림 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_03_24_03/3670181/list.do"
+    },
+    {
+      "department": "재난안전과",
+      "matchDepartments": ["재난안전과", "재난안전과 안전정책팀", "재난안전과 방재관리팀", "재난안전과 하천팀"],
+      "label": "재난안전과 안내",
+      "phone": "042-611-2475",
+      "note": "안전정책·자연재난·하천 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_26_01.do"
+    },
+    {
+      "department": "사회돌봄과 복지정책팀",
+      "matchDepartments": ["사회돌봄과", "사회돌봄과 복지정책팀"],
+      "label": "사회돌봄과 안내",
+      "phone": "042-611-2382",
+      "note": "복지정책·재해구호 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_14_01.do"
+    },
+    {
+      "department": "생활보장과",
+      "matchDepartments": ["생활보장과", "생활보장과 생활보장팀", "생활보장과 희망복지지원팀"],
+      "label": "생활보장과 안내",
+      "phone": "042-611-2402",
+      "note": "기초생활보장·행려자·긴급복지 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_15_01.do"
+    },
+    {
+      "department": "아동복지과",
+      "matchDepartments": ["아동복지과", "아동복지과 아동보호팀"],
+      "label": "아동복지과 안내",
+      "phone": "042-611-2685",
+      "note": "아동복지 업무 연결·긴급 학대 신고는 112",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_16_01.do"
+    },
+    {
+      "department": "위생과",
+      "matchDepartments": ["위생과"],
+      "label": "위생과 안내",
+      "phone": "042-611-2413",
+      "note": "식품·공중위생 및 업소 지도 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_18_01.do"
+    },
+    {
+      "department": "교통정책과",
+      "matchDepartments": ["교통정책과"],
+      "label": "교통정책과 안내",
+      "phone": "042-611-2572",
+      "note": "화물차·방치차량·이륜자동차 업무",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_21_01.do"
+    },
+    {
+      "department": "대전광역시 교통 담당",
+      "matchDepartments": ["시 교통정책과"],
+      "label": "대전시 콜센터",
+      "phone": "042-120",
+      "note": "시 관리 교통시설 담당 부서 연결",
+      "sourceUrl": "https://www.daejeon.go.kr/"
+    },
+    {
+      "department": "공원과",
+      "matchDepartments": ["공원과"],
+      "label": "공원과 안내",
+      "phone": "042-611-2720",
+      "note": "공원 시설·행사 관련 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_23_01.do"
+    },
+    {
+      "department": "문화관광체육과",
+      "matchDepartments": ["문화관광체육과"],
+      "label": "문화관광체육과 안내",
+      "phone": "042-611-2072",
+      "note": "축제·문화행사·체육시설 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_11_01.do"
+    },
+    {
+      "department": "노인장애인과",
+      "matchDepartments": ["노인장애인과"],
+      "label": "노인장애인과 안내",
+      "phone": "042-611-2969",
+      "note": "장애인 전용주차구역·복지 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_31_01.do"
+    },
+    {
+      "department": "공동주택과",
+      "matchDepartments": ["공동주택과"],
+      "label": "공동주택과 안내",
+      "phone": "042-611-2765",
+      "note": "공동주택 관리·공사장 민원 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_29_01.do"
+    },
+    {
+      "department": "회계과",
+      "matchDepartments": ["회계과"],
+      "label": "회계과 안내",
+      "phone": "042-611-2154",
+      "note": "청사·방범용 CCTV 관련 업무 연결",
+      "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_05_01.do"
+    },
+    {
+      "department": "경찰",
+      "matchDepartments": ["경찰"],
+      "label": "긴급 신고",
+      "phone": "112",
+      "note": "범죄·아동학대 등 즉시 위험 상황",
+      "sourceUrl": "https://www.police.go.kr/"
+    }
+  ]
+}

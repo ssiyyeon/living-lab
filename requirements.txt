@@ -5,5 +5,5 @@ pandas==3.0.5
 openpyxl==3.1.5
 scikit-learn==1.9.0
 
-# search/ (현재 v1 검색 엔진은 BM25만 사용)
+# search/ (v1은 검증 결과에 따라 BM25만 활성화)
 rank_bm25==0.2.2

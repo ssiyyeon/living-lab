@@ -1,9 +1,7 @@
 private/
 data/raw/
 
-# 안전장치: private/raw로 복사는 했지만 프로젝트 최상위에도 남아있는 원본 파일들.
-# 실수로 git add -A 등을 하더라도 커밋되지 않도록 파일명으로 한 번 더 제외한다.
-# (원본은 삭제하지 않고 위치만 방어적으로 제외 - 데이터 훼손 방지 원칙)
+# 안전장치: 원본 PDF와 Excel 파일은 저장소에 포함하지 않습니다.
 /*.pdf
 /당직민원 목록*.xlsx
 
@@ -11,11 +9,17 @@ data/raw/
 .DS_Store
 .vscode/
 
-# python
+# Python
+.venv/
+.venv-api/
 __pycache__/
 *.pyc
-.venv/
 
-# search/build_index.py로 재생성 가능한 빌드 캐시(pickle·임베딩 벡터, 데이터 자체는
-# 공개된 data/ 기반이라 민감정보 아님 - 재현 가능한 산출물이라 커밋 대상에서만 제외)
+# Search index cache
 search/index/
+
+# Package manager cache
+.pnpm-store/
+
+# Local development server logs
+tmp/

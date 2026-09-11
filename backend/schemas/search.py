@@ -29,25 +29,93 @@ class DepartmentRouting(BaseModel):
 
 class DepartmentContact(BaseModel):
     department: str
-    phoneNumbers: List[str] = Field(default_factory=list)
-
-
-class OperatorOption(BaseModel):
-    id: str
     label: str
-    department: str
-    status: str
-    statusLabel: str
-    actionSteps: List[str] = Field(default_factory=list)
+    phone: str
+    note: str
+    sourceUrl: str
 
 
-class OperatorGuidance(BaseModel):
-    mode: str
-    headline: str
-    question: Optional[str] = None
-    actionSteps: List[str] = Field(default_factory=list)
-    options: List[OperatorOption] = Field(default_factory=list)
-    caution: str = ""
+class DecisionBranch(BaseModel):
+    condition: str
+    actions: List[str] = Field(default_factory=list)
+    response: str
+
+
+class EscalationRule(BaseModel):
+    condition: str
+    action: str
+
+
+class QuickGuideSection(BaseModel):
+    title: str
+    timeLabel: str
+    steps: List[str] = Field(default_factory=list)
+
+
+class QuickGuideContact(BaseModel):
+    group: str
+    organization: str
+    label: str
+    phone: str
+
+
+class QuickGuide(BaseModel):
+    id: str
+    title: str
+    description: str
+    sourcePages: List[int] = Field(default_factory=list)
+    sections: List[QuickGuideSection] = Field(default_factory=list)
+    cautions: List[str] = Field(default_factory=list)
+    contacts: List[QuickGuideContact] = Field(default_factory=list)
+    restrictedNotice: Optional[str] = None
+
+
+class QuickGuideListResponse(BaseModel):
+    source: str
+    guides: List[QuickGuide] = Field(default_factory=list)
+
+
+class ContactDirectoryEntry(BaseModel):
+    id: str
+    group: str
+    organization: str
+    label: str
+    phone: str
+    note: str
+    source: str
+    sourceUrl: str
+
+
+class ContactDirectoryResponse(BaseModel):
+    source: str
+    verifiedAt: str
+    notice: str
+    contacts: List[ContactDirectoryEntry] = Field(default_factory=list)
+
+
+class ManualCatalogEntry(BaseModel):
+    id: str
+    entryType: str
+    group: str
+    topic: str
+    title: str
+    breadcrumb: List[str] = Field(default_factory=list)
+    sourcePages: List[int] = Field(default_factory=list)
+    departments: List[str] = Field(default_factory=list)
+    summary: str
+    content: str
+    intakeQuestions: List[str] = Field(default_factory=list)
+    immediateActions: List[str] = Field(default_factory=list)
+    decisionBranches: List[DecisionBranch] = Field(default_factory=list)
+    responseScripts: List[str] = Field(default_factory=list)
+    escalationRules: List[EscalationRule] = Field(default_factory=list)
+    cautions: List[str] = Field(default_factory=list)
+
+
+class ManualCatalogResponse(BaseModel):
+    source: str
+    totalCount: int
+    entries: List[ManualCatalogEntry] = Field(default_factory=list)
 
 
 class SearchResult(BaseModel):
@@ -60,10 +128,7 @@ class SearchResult(BaseModel):
 
     department: str
     departments: List[str] = Field(default_factory=list)
-    departmentContacts: List[DepartmentContact] = Field(
-        default_factory=list
-    )
-    operatorGuidance: OperatorGuidance
+    departmentContacts: List[DepartmentContact] = Field(default_factory=list)
 
     paragraphSummary: str
     keyActions: List[str] = Field(default_factory=list)
@@ -87,6 +152,14 @@ class SearchResult(BaseModel):
     departmentRouting: List[DepartmentRouting] = Field(
         default_factory=list
     )
+
+    caseKind: Optional[str] = None
+    intakeQuestions: List[str] = Field(default_factory=list)
+    immediateActions: List[str] = Field(default_factory=list)
+    decisionBranches: List[DecisionBranch] = Field(default_factory=list)
+    responseScripts: List[str] = Field(default_factory=list)
+    escalationRules: List[EscalationRule] = Field(default_factory=list)
+    cautions: List[str] = Field(default_factory=list)
 
 
 class SearchResponse(BaseModel):

@@ -15,6 +15,9 @@ from pathlib import Path
 
 from rank_bm25 import BM25Okapi
 
+
+BUILD_EMBEDDINGS = False
+
 BASE = Path(__file__).resolve().parent.parent
 INDEX_DIR = Path(__file__).resolve().parent / "index"
 INDEX_DIR.mkdir(exist_ok=True)
@@ -50,10 +53,31 @@ def load_documents():
     cases = json.load(open(BASE / "data/manual/manual_cases.json", encoding="utf-8"))
     sections = json.load(open(BASE / "data/manual/manual_sections.json", encoding="utf-8"))
     recurring = json.load(open(BASE / "data/complaints/recurring_cases.json", encoding="utf-8"))
+    intent_path = BASE / "data/complaints/search_intents.json"
+    intent_data = json.load(open(intent_path, encoding="utf-8")) if intent_path.exists() else {"intents": []}
+    intents_by_title = {
+        item["title"]: item
+        for item in intent_data.get("intents", [])
+        if item.get("title")
+    }
+    action_path = BASE / "data/manual/manual_action_cases.json"
+    action_data = json.load(open(action_path, encoding="utf-8")) if action_path.exists() else {"cases": []}
+    actions_by_id = {
+        item["id"]: item
+        for item in action_data.get("cases", [])
+        if item.get("id")
+    }
 
     docs = []
     for c in cases:
         body = " ".join(p["text"] for p in c["content_by_page"])
+        action_case = actions_by_id.get(c["id"], {})
+        search_terms = action_case.get("searchTerms", [])
+        action_text = " ".join([
+            action_case.get("summary", ""),
+            *action_case.get("intakeQuestions", []),
+            *action_case.get("immediateActions", []),
+        ])
         # BM25 색인용 텍스트(bm25_text)는 제목+키워드만 쓴다(본문 전체 X). 모든 케이스가
         # "본관 당직사령에게 상황보고", "관련 부서에 접수 사항 전파"처럼 거의 동일한 정형
         # 절차 문구를 공유하고 있어서, 본문 전체를 색인하면 이 보일러플레이트 때문에
@@ -64,8 +88,13 @@ def load_documents():
         docs.append({
             "doc_id": c["id"], "kind": "manual_case", "title": c["title"],
             "keywords": c.get("keywords", []),
-            "bm25_text": (c["title"] + " ") * 2 + " ".join(c.get("keywords", [])),
-            "display_text": c["title"] + " " + body,
+            "bm25_text": (
+                (c["title"] + " ") * 2
+                + " ".join(c.get("keywords", []))
+                + " "
+                + (" ".join(search_terms) + " ") * 3
+            ),
+            "display_text": c["title"] + " " + action_text + " " + body,
             "evidence_level": "official_manual",
             "breadcrumb": c.get("breadcrumb", []),
             "departments": c.get("departments", []),
@@ -91,11 +120,22 @@ def load_documents():
             "source": s.get("source"),
         })
     for i, r in enumerate(recurring):
+        intent = intents_by_title.get(r["type"], {})
+        search_terms = intent.get("searchTerms", [])
         docs.append({
             "doc_id": f"recurring_{i:03d}", "kind": "recurring_case", "title": r["type"],
             "keywords": [],
-            "bm25_text": (r["type"] + " ") * 2 + " ".join(r.get("main_departments", [])),
-            "display_text": r["type"] + " " + " ".join(r.get("main_departments", [])),
+            "bm25_text": (
+                (r["type"] + " ") * 2
+                + " ".join(r.get("main_departments", []))
+            ),
+            "display_text": (
+                r["type"]
+                + " "
+                + " ".join(search_terms)
+                + " "
+                + " ".join(r.get("main_departments", []))
+            ),
             "evidence_level": "historical_case",
             "departments": r.get("main_departments", []),
             "candidate_count": r.get("candidate_count"),
@@ -110,6 +150,27 @@ def build():
     docs = load_documents()
     tokenized = [tokenize(d["bm25_text"]) for d in docs]
     bm25 = BM25Okapi(tokenized)
+
+    if BUILD_EMBEDDINGS:
+        from sentence_transformers import SentenceTransformer
+
+        print("임베딩 모델 로딩 중...")
+        model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
+        # 임베딩은 BM25와 반대로 문맥이 많을수록 의미 파악에 유리해서 본문(display_text)을 쓴다.
+        # 너무 길면 특정 단어 하나에 벡터가 묻히니 앞부분 400자로 제한.
+        embed_texts = [
+            d["title"] + ". " + d["display_text"][:400]
+            for d in docs
+        ]
+        print(f"{len(embed_texts)}개 문서 임베딩 계산 중...")
+        embeddings = model.encode(
+            embed_texts,
+            show_progress_bar=True,
+            normalize_embeddings=True,
+        )
+    else:
+        # v1은 의미 검색 티어를 사용하지 않으므로 대형 모델 다운로드를 생략한다.
+        embeddings = np.empty((len(docs), 0), dtype=np.float32)
 
     with open(INDEX_DIR / "docs.json", "w", encoding="utf-8") as f:
         json.dump(docs, f, ensure_ascii=False, indent=2)
