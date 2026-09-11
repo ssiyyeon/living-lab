@@ -145,8 +145,8 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
             <div className="flex gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-red)" }} />
               <div>
-                <h2 className="text-sm font-bold" style={{ color: "var(--brand-red-dark)" }}>빠뜨리지 마세요</h2>
-                <ul className="mt-2 space-y-1.5 text-xs leading-5" style={{ color: "var(--brand-red-dark)" }}>
+                <h2 className="sr-only">주의사항</h2>
+                <ul className="space-y-1.5 text-xs leading-5" style={{ color: "var(--brand-red-dark)" }}>
                   {guide.cautions.map((caution) => <li key={caution}>• {caution}</li>)}
                 </ul>
               </div>
@@ -278,8 +278,8 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
             <div className="flex gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-red)" }} />
               <div>
-                <h2 className="font-bold" style={{ color: "var(--brand-red-dark)" }}>빠뜨리지 마세요</h2>
-                <ul className="mt-2 space-y-2 text-sm leading-6" style={{ color: "var(--brand-red-dark)" }}>
+                <h2 className="sr-only">주의사항</h2>
+                <ul className="space-y-2 text-sm leading-6" style={{ color: "var(--brand-red-dark)" }}>
                   {guide.cautions.map((caution) => <li key={caution}>• {caution}</li>)}
                 </ul>
               </div>

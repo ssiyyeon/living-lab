@@ -127,9 +127,9 @@ export function DutyTimelineDrawer({ guide, source }: DutyTimelineDrawerProps) {
                 style={{ color: "var(--brand-red)" }}
               />
               <div>
-                <h3 className="text-sm font-bold">빠뜨리지 마세요</h3>
+                <h3 className="sr-only">주의사항</h3>
                 <ul
-                  className="mt-2 space-y-1.5 text-xs leading-5"
+                  className="space-y-1.5 text-xs leading-5"
                   style={{ color: "var(--muted-foreground)" }}
                 >
                   {guide.cautions.map((caution) => (
