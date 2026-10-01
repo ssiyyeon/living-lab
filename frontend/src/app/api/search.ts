@@ -136,9 +136,133 @@ export interface ManualCatalogResponse {
   entries: ManualCatalogEntry[];
 }
 
+export interface AuthUser {
+  id: number;
+  username: string;
+  displayName: string;
+  role: "admin" | "staff";
+}
+
+export interface AuthStatusResponse {
+  needsSetup: boolean;
+}
+
+export interface AdminContactInput {
+  group: string;
+  organization: string;
+  label: string;
+  phone: string;
+  note: string;
+  sourceUrl: string;
+}
+
+export interface AdminGuideInput {
+  title: string;
+  description: string;
+  sections: QuickGuideSection[];
+  cautions: string[];
+}
+
 const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"
 ).replace(/\/$/, "");
+
+async function apiJson<T>(path: string, options: RequestInit = {}): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        ...(options.body ? { "Content-Type": "application/json" } : {}),
+        ...options.headers,
+      },
+    });
+  } catch {
+    throw new Error("서버에 연결할 수 없습니다. 백엔드가 실행 중인지 확인해 주세요.");
+  }
+
+  const body = response.status === 204 ? null : await response.json().catch(() => null);
+  if (!response.ok) {
+    const detail = body && typeof body.detail === "string" ? body.detail : "요청을 처리하지 못했습니다.";
+    throw new Error(detail);
+  }
+  return body as T;
+}
+
+export function fetchAuthStatus(): Promise<AuthStatusResponse> {
+  return apiJson<AuthStatusResponse>("/api/auth/status");
+}
+
+export function fetchCurrentUser(): Promise<AuthUser> {
+  return apiJson<AuthUser>("/api/auth/me");
+}
+
+export function login(username: string, password: string): Promise<AuthUser> {
+  return apiJson<AuthUser>("/api/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export function setupAdmin(
+  displayName: string,
+  username: string,
+  password: string,
+): Promise<AuthUser> {
+  return apiJson<AuthUser>("/api/auth/setup", {
+    method: "POST",
+    body: JSON.stringify({ displayName, username, password }),
+  });
+}
+
+export async function logout(): Promise<void> {
+  await apiJson<null>("/api/auth/logout", { method: "POST" });
+}
+
+export function fetchAdminContacts(): Promise<ContactDirectoryResponse> {
+  return apiJson<ContactDirectoryResponse>("/api/admin/contacts");
+}
+
+export function createAdminContact(input: AdminContactInput): Promise<ContactDirectoryEntry> {
+  return apiJson<ContactDirectoryEntry>("/api/admin/contacts", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAdminContact(
+  id: string,
+  input: AdminContactInput,
+): Promise<ContactDirectoryEntry> {
+  return apiJson<ContactDirectoryEntry>(`/api/admin/contacts/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function deleteAdminContact(id: string): Promise<void> {
+  await apiJson<{ ok: boolean }>(`/api/admin/contacts/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function fetchAdminGuides(): Promise<QuickGuideListResponse> {
+  return apiJson<QuickGuideListResponse>("/api/admin/guides");
+}
+
+export function updateAdminGuide(id: string, input: AdminGuideInput): Promise<QuickGuide> {
+  return apiJson<QuickGuide>(`/api/admin/guides/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export async function resetAdminGuide(id: string): Promise<void> {
+  await apiJson<{ ok: boolean }>(`/api/admin/guides/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
 
 export async function searchComplaints(
   query: string,
@@ -149,6 +273,7 @@ export async function searchComplaints(
   try {
     response = await fetch(`${API_BASE_URL}/api/search`, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
       },
@@ -181,7 +306,7 @@ export async function fetchQuickGuides(): Promise<QuickGuideListResponse> {
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/api/guides`);
+    response = await fetch(`${API_BASE_URL}/api/guides`, { credentials: "include" });
   } catch {
     throw new Error(
       "업무 가이드를 불러올 수 없습니다. 백엔드가 실행 중인지 확인해 주세요.",
@@ -201,7 +326,7 @@ export async function fetchContactDirectory(): Promise<ContactDirectoryResponse>
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/api/contacts`);
+    response = await fetch(`${API_BASE_URL}/api/contacts`, { credentials: "include" });
   } catch {
     throw new Error(
       "전화번호부를 불러올 수 없습니다. 백엔드가 실행 중인지 확인해 주세요.",
@@ -221,7 +346,7 @@ export async function fetchManualCatalog(): Promise<ManualCatalogResponse> {
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}/api/manual`);
+    response = await fetch(`${API_BASE_URL}/api/manual`, { credentials: "include" });
   } catch {
     throw new Error(
       "전체 매뉴얼을 불러올 수 없습니다. 백엔드가 실행 중인지 확인해 주세요.",

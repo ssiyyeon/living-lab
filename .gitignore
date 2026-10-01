@@ -1,5 +1,6 @@
 private/
 data/raw/
+data/runtime/
 
 # 안전장치: 원본 PDF와 Excel 파일은 저장소에 포함하지 않습니다.
 /*.pdf

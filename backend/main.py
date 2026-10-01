@@ -4,6 +4,10 @@ from fastapi.middleware.cors import (
     CORSMiddleware,
 )
 
+from backend.database import initialize_database
+from backend.routers.admin import router as admin_router
+from backend.routers.auth import router as auth_router
+
 from backend.routers.search import (
     router as search_router,
 )
@@ -35,6 +39,11 @@ app.add_middleware(
 )
 
 
+@app.on_event("startup")
+def startup() -> None:
+    initialize_database()
+
+
 @app.get("/")
 def root():
     return {
@@ -55,6 +64,6 @@ def health():
     }
 
 
-app.include_router(
-    search_router
-)
+app.include_router(search_router)
+app.include_router(auth_router)
+app.include_router(admin_router)

@@ -10,6 +10,8 @@
 - 85쪽 당직 매뉴얼에서 정리한 71개 문서와 공개 업무 연락처 47건을 사용합니다.
 - 자주 쓰는 연락처 고정과 사용자 연락처 추가 기능을 제공합니다. 사용자 설정은 현재 브라우저에 저장됩니다.
 - 전체 화면을 열지 않아도 사용할 수 있는 미니 응대 화면을 제공합니다.
+- 로그인 후에만 업무 자료를 볼 수 있으며, 첫 실행 시 관리자 계정을 직접 생성합니다.
+- 관리자는 업무 안내의 제목·설명·단계·주의사항과 공용 전화번호부를 수정할 수 있고 변경 내용은 모든 사용자에게 반영됩니다.
 
 ## 기술 구성
 
@@ -57,6 +59,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start-dev.ps1
 - API 문서: `http://localhost:8000/docs`
 - 실행 로그: `tmp/`
 
+처음 접속하면 `관리자 계정 만들기` 화면이 표시됩니다. 관리자 이름, 아이디, 8자 이상의 비밀번호를 입력해 최초 관리자 계정을 만드세요. 이후에는 같은 아이디와 비밀번호로 로그인합니다. 초기 계정 정보는 코드나 Git에 저장되지 않습니다.
+
 ## 각각 실행하기
 
 터미널 1에서 백엔드를 실행합니다. 검색 인덱스는 처음 한 번만 만들면 됩니다.
@@ -93,10 +97,15 @@ Invoke-RestMethod http://localhost:8000/health
 
 주요 API는 다음과 같습니다.
 
+- `GET /api/auth/status`: 최초 관리자 설정 여부
+- `POST /api/auth/setup`: 최초 관리자 계정 생성
+- `POST /api/auth/login`, `POST /api/auth/logout`: 로그인·로그아웃
 - `POST /api/search`: 민원 검색과 대응 안내
 - `GET /api/guides`: 반복 민원 상세 가이드
 - `GET /api/manual`: 당직 근무 매뉴얼
 - `GET /api/contacts`: 공개 업무 연락처
+- `GET/POST/PUT/DELETE /api/admin/contacts`: 관리자 공용 연락처 관리
+- `GET/PUT/DELETE /api/admin/guides`: 업무 안내 조회·수정·원본 복원
 
 ## 자주 생기는 문제
 
@@ -154,6 +163,7 @@ git pull origin integration
 - 검색 인덱스(`search/index/`)는 Git에 올리지 않으며 로컬에서 생성합니다.
 - 원본 민원 자료, 비공개 야간 연락망, 개인정보 파일은 Git에 올리지 않습니다.
 - 현재 연락처 즐겨찾기와 사용자 추가 연락처는 브라우저 로컬 저장소에만 저장됩니다.
-- 실제 배포 환경에서는 로그인·권한 관리와 비공개 연락망 저장소를 별도로 연결해야 합니다.
+- 로컬 로그인 계정과 관리자 연락처는 `data/runtime/dutory.sqlite3`에 저장되며 Git에 올라가지 않습니다. 이 파일을 지우면 초기 관리자 설정부터 다시 진행합니다.
+- 실제 배포 환경에서는 `DUTORY_COOKIE_SECURE=1`을 설정하고 HTTPS를 사용하며, SQLite 대신 운영용 데이터베이스와 기관 계정 체계를 연결해야 합니다.
 
 데이터 구조는 [README_DATA.md](./README_DATA.md), 검색 구조와 평가 방법은 [README_SEARCH.md](./README_SEARCH.md)에서 더 자세히 확인할 수 있습니다.

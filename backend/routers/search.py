@@ -1,4 +1,6 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from backend.routers.auth import require_user
 
 from backend.schemas.search import (
     ContactDirectoryResponse,
@@ -12,11 +14,14 @@ from backend.services.search_service import (
     SearchServiceUnavailable,
     search_service,
 )
+from backend.services.contact_service import merge_contact_directory
+from backend.services.content_service import merge_quick_guides
 
 
 router = APIRouter(
     prefix="/api",
     tags=["search"],
+    dependencies=[Depends(require_user)],
 )
 
 
@@ -27,7 +32,7 @@ router = APIRouter(
 def list_quick_guides() -> QuickGuideListResponse:
 
     return QuickGuideListResponse(
-        **search_service.get_quick_guides()
+        **merge_quick_guides(search_service.get_quick_guides())
     )
 
 
@@ -49,7 +54,7 @@ def list_manual_catalog() -> ManualCatalogResponse:
 def list_contact_directory() -> ContactDirectoryResponse:
 
     return ContactDirectoryResponse(
-        **search_service.get_contact_directory()
+        **merge_contact_directory(search_service.get_contact_directory())
     )
 
 

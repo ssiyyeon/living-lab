@@ -1,6 +1,7 @@
 import {
   BookUser,
   Loader2,
+  Pencil,
   Phone,
   Plus,
   Search,
@@ -16,6 +17,7 @@ import {
 
 const PINNED_CONTACTS_KEY = "yuseong-duty-pinned-contacts-v1";
 const CUSTOM_CONTACTS_KEY = "yuseong-duty-custom-contacts-v1";
+const CONTACT_OVERRIDES_KEY = "yuseong-duty-contact-overrides-v1";
 
 const GROUP_ORDER = [
   "내 연락처",
@@ -57,10 +59,12 @@ function ContactRow({
   contact,
   isPinned,
   onTogglePin,
+  onEdit,
 }: {
   contact: ContactDirectoryEntry;
   isPinned: boolean;
   onTogglePin: (id: string) => void;
+  onEdit: (contact: ContactDirectoryEntry) => void;
 }) {
   return (
     <div className="flex items-center gap-3 bg-white px-4 py-3.5">
@@ -80,6 +84,16 @@ function ContactRow({
           {contact.phone}
         </span>
       </a>
+      <button
+        type="button"
+        onClick={() => onEdit(contact)}
+        aria-label={`${contact.organization} 연락처 수정`}
+        title="연락처 수정"
+        className="inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full transition-colors hover:bg-[#F7FCFF]"
+        style={{ color: "var(--muted-foreground)" }}
+      >
+        <Pencil className="h-4 w-4" />
+      </button>
       <button
         type="button"
         onClick={() => onTogglePin(contact.id)}
@@ -108,6 +122,7 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
   const [loadError, setLoadError] = useState("");
   const [query, setQuery] = useState("");
   const [isAdding, setIsAdding] = useState(false);
+  const [editingContactId, setEditingContactId] = useState<string | null>(null);
   const [form, setForm] = useState<ContactFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const [pinnedIds, setPinnedIds] = useState<string[]>(() =>
@@ -115,6 +130,9 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
   );
   const [customContacts, setCustomContacts] = useState<ContactDirectoryEntry[]>(() =>
     loadStoredArray<ContactDirectoryEntry>(CUSTOM_CONTACTS_KEY),
+  );
+  const [contactOverrides, setContactOverrides] = useState<ContactDirectoryEntry[]>(() =>
+    loadStoredArray<ContactDirectoryEntry>(CONTACT_OVERRIDES_KEY),
   );
 
   useEffect(() => {
@@ -144,10 +162,20 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
     window.localStorage.setItem(CUSTOM_CONTACTS_KEY, JSON.stringify(customContacts));
   }, [customContacts]);
 
-  const allContacts = useMemo(
-    () => [...customContacts, ...(directory?.contacts ?? [])],
-    [customContacts, directory],
-  );
+  useEffect(() => {
+    window.localStorage.setItem(CONTACT_OVERRIDES_KEY, JSON.stringify(contactOverrides));
+  }, [contactOverrides]);
+
+  const allContacts = useMemo(() => {
+    const overridesById = new Map(
+      contactOverrides.map((contact) => [contact.id, contact]),
+    );
+    const officialContacts = (directory?.contacts ?? []).map(
+      (contact) => overridesById.get(contact.id) ?? contact,
+    );
+
+    return [...customContacts, ...officialContacts];
+  }, [contactOverrides, customContacts, directory]);
 
   const filteredContacts = useMemo(() => {
     const normalizedQuery = query.replace(/\s+/g, "").toLowerCase();
@@ -184,7 +212,26 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
     );
   };
 
-  const handleAddContact = (event: React.FormEvent<HTMLFormElement>) => {
+  const resetForm = () => {
+    setForm(EMPTY_FORM);
+    setFormError("");
+    setEditingContactId(null);
+    setIsAdding(false);
+  };
+
+  const startEditContact = (contact: ContactDirectoryEntry) => {
+    setEditingContactId(contact.id);
+    setForm({
+      organization: contact.organization,
+      label: contact.label,
+      phone: contact.phone,
+      note: contact.note,
+    });
+    setFormError("");
+    setIsAdding(true);
+  };
+
+  const handleSaveContact = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const organization = form.organization.trim();
     const phone = form.phone.trim();
@@ -199,21 +246,49 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
       return;
     }
 
-    const contact: ContactDirectoryEntry = {
-      id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      group: "내 연락처",
-      organization,
-      label: form.label.trim() || "직접 추가",
-      phone,
-      note: form.note.trim(),
-      source: "사용자 추가",
-      sourceUrl: "",
-    };
+    if (editingContactId) {
+      const existing = allContacts.find((contact) => contact.id === editingContactId);
+      if (!existing) {
+        setFormError("수정할 연락처를 찾지 못했습니다.");
+        return;
+      }
 
-    setCustomContacts((current) => [contact, ...current]);
-    setForm(EMPTY_FORM);
-    setFormError("");
-    setIsAdding(false);
+      const updatedContact: ContactDirectoryEntry = {
+        ...existing,
+        organization,
+        label: form.label.trim() || "업무 연락처",
+        phone,
+        note: form.note.trim(),
+      };
+
+      if (editingContactId.startsWith("custom_")) {
+        setCustomContacts((current) =>
+          current.map((contact) =>
+            contact.id === editingContactId ? updatedContact : contact,
+          ),
+        );
+      } else {
+        setContactOverrides((current) => [
+          updatedContact,
+          ...current.filter((contact) => contact.id !== editingContactId),
+        ]);
+      }
+    } else {
+      const contact: ContactDirectoryEntry = {
+        id: `custom_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        group: "내 연락처",
+        organization,
+        label: form.label.trim() || "직접 추가",
+        phone,
+        note: form.note.trim(),
+        source: "사용자 추가",
+        sourceUrl: "",
+      };
+
+      setCustomContacts((current) => [contact, ...current]);
+    }
+
+    resetForm();
   };
 
   return (
@@ -262,11 +337,17 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
           <button
             type="button"
             onClick={() => {
-              setIsAdding((current) => !current);
-              setFormError("");
+              if (isAdding) {
+                resetForm();
+              } else {
+                setEditingContactId(null);
+                setForm(EMPTY_FORM);
+                setFormError("");
+                setIsAdding(true);
+              }
             }}
             aria-expanded={isAdding}
-            aria-controls="contact-add-form"
+            aria-controls="contact-form"
             className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold"
             style={{ borderColor: "var(--brand-green)", color: "var(--brand-green)" }}
           >
@@ -276,7 +357,10 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
         </div>
 
         {isAdding && (
-          <form id="contact-add-form" onSubmit={handleAddContact} className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+          <form id="contact-form" onSubmit={handleSaveContact} className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            <h3 className="mb-3 text-sm font-extrabold">
+              {editingContactId ? "연락처 수정" : "새 연락처 추가"}
+            </h3>
             <div className="grid grid-cols-2 gap-2">
               <input
                 value={form.organization}
@@ -316,10 +400,7 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
             <div className="mt-3 flex justify-end gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setIsAdding(false);
-                  setFormError("");
-                }}
+                onClick={resetForm}
                 className="rounded-lg px-3 py-2 text-xs font-bold"
                 style={{ color: "var(--muted-foreground)" }}
               >
@@ -330,7 +411,7 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
                 className="rounded-lg px-4 py-2 text-xs font-bold text-white"
                 style={{ background: "var(--brand-green)" }}
               >
-                연락처 저장
+                {editingContactId ? "수정 저장" : "연락처 저장"}
               </button>
             </div>
           </form>
@@ -359,7 +440,13 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
             </h3>
             <div className="divide-y overflow-hidden rounded-2xl border" style={{ borderColor: "var(--border)" }}>
               {pinnedContacts.map((contact) => (
-                <ContactRow key={contact.id} contact={contact} isPinned onTogglePin={togglePin} />
+                <ContactRow
+                  key={contact.id}
+                  contact={contact}
+                  isPinned
+                  onTogglePin={togglePin}
+                  onEdit={startEditContact}
+                />
               ))}
             </div>
           </section>
@@ -377,6 +464,7 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
                   contact={contact}
                   isPinned={false}
                   onTogglePin={togglePin}
+                  onEdit={startEditContact}
                 />
               ))}
             </div>
@@ -390,9 +478,10 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
         )}
       </div>
 
-      <footer className="border-t px-5 py-3 text-[10px] leading-4" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
+      <footer className="border-t px-5 py-3 text-sm leading-5" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
         {directory?.notice ?? "공개 업무용 연락처만 표시합니다."}
         {directory?.verifiedAt ? ` · 확인 ${directory.verifiedAt}` : ""}
+        <span className="mt-1 block">추가·수정한 내용은 현재 브라우저에 저장됩니다.</span>
       </footer>
     </aside>
   );

@@ -9,15 +9,14 @@ import {
   ClipboardPlus,
   Clock3,
   Loader2,
-  Menu,
+  LogOut,
   MessageSquareText,
   MessagesSquare,
   Moon,
   NotebookPen,
-  PanelLeftClose,
-  PanelLeftOpen,
   PhoneCall,
   Search,
+  Settings,
   Siren,
   X,
 } from "lucide-react";
@@ -27,10 +26,16 @@ import { DutyTimelineDrawer } from "./components/DutyTimelineDrawer";
 import { ContactDirectoryDrawer } from "./components/ContactDirectoryDrawer";
 import { MiniDutyChat } from "./components/MiniDutyChat";
 import { ManualCatalogView } from "./components/ManualCatalogView";
+import { AdminPage } from "./components/AdminPage";
+import { LoginPage } from "./components/LoginPage";
 import {
+  fetchAuthStatus,
+  fetchCurrentUser,
   fetchManualCatalog,
   fetchQuickGuides,
+  logout,
   searchComplaints,
+  type AuthUser,
   type ManualCatalogResponse,
   type QuickGuide,
   type SearchResponse,
@@ -54,7 +59,8 @@ type ViewId =
   | "duty_basics"
   | "disaster_response"
   | "emergency_contacts"
-  | "full_manual";
+  | "full_manual"
+  | "admin";
 
 const DRAWER_GUIDE_IDS = new Set<ViewId>([
   "duty_timeline",
@@ -153,13 +159,78 @@ function toSearchResult(result: ApiSearchResult, tier: string): SearchResult {
 }
 
 export default function App() {
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [authError, setAuthError] = useState("");
   const isMiniMode = new URLSearchParams(window.location.search).get("mini") === "1";
-  return isMiniMode ? <MiniDutyChat /> : <MainApp />;
+
+  useEffect(() => {
+    let isMounted = true;
+    const checkAuth = async () => {
+      try {
+        const status = await fetchAuthStatus();
+        if (!isMounted) return;
+        setNeedsSetup(status.needsSetup);
+        if (!status.needsSetup) {
+          try {
+            const currentUser = await fetchCurrentUser();
+            if (isMounted) setUser(currentUser);
+          } catch {
+            if (isMounted) setUser(null);
+          }
+        }
+      } catch (error) {
+        if (isMounted) {
+          setAuthError(error instanceof Error ? error.message : "서버에 연결하지 못했습니다.");
+        }
+      } finally {
+        if (isMounted) setIsCheckingAuth(false);
+      }
+    };
+    void checkAuth();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center gap-3 bg-[#F3F5F7] text-sm" style={{ color: "var(--muted-foreground)" }}>
+        <Loader2 className="h-5 w-5 animate-spin" /> 로그인 상태를 확인하고 있습니다.
+      </div>
+    );
+  }
+
+  if (authError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F3F5F7] px-5">
+        <div className="max-w-md rounded-2xl border bg-white p-6 text-center" style={{ borderColor: "var(--brand-red)" }}>
+          <h1 className="text-xl font-extrabold">백엔드 연결이 필요합니다</h1>
+          <p className="mt-3 text-sm leading-6" style={{ color: "var(--muted-foreground)" }}>{authError}</p>
+          <button type="button" onClick={() => window.location.reload()} className="mt-5 rounded-xl px-5 py-2.5 text-sm font-bold text-white" style={{ background: "var(--brand-green)" }}>다시 확인</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <LoginPage
+        needsSetup={needsSetup}
+        onAuthenticated={(authenticatedUser) => {
+          setUser(authenticatedUser);
+          setNeedsSetup(false);
+        }}
+      />
+    );
+  }
+
+  return isMiniMode ? <MiniDutyChat /> : <MainApp user={user} onLoggedOut={() => setUser(null)} />;
 }
 
-function MainApp() {
+function MainApp({ user, onLoggedOut }: { user: AuthUser; onLoggedOut: () => void }) {
   const [activeView, setActiveView] = useState<ViewId>("response");
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [drawerGuideId, setDrawerGuideId] = useState<ViewId | null>(null);
   const [isContactDirectoryOpen, setIsContactDirectoryOpen] = useState(false);
   const [homeGuideId, setHomeGuideId] = useState<(typeof HOME_GUIDES)[number]["id"] | null>(null);
@@ -222,19 +293,17 @@ function MainApp() {
   }, [activeView, manualCatalog]);
 
   useEffect(() => {
-    if (!isSidebarOpen && !drawerGuideId && !isContactDirectoryOpen) return;
+    if (!drawerGuideId && !isContactDirectoryOpen) return;
 
     const previousOverflow = document.body.style.overflow;
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
-        setIsSidebarOpen(false);
         setDrawerGuideId(null);
         setIsContactDirectoryOpen(false);
       }
     };
 
-    const shouldLockScroll = Boolean(drawerGuideId || isContactDirectoryOpen)
-      || (isSidebarOpen && window.matchMedia("(max-width: 767px)").matches);
+    const shouldLockScroll = Boolean(drawerGuideId || isContactDirectoryOpen);
 
     if (shouldLockScroll) document.body.style.overflow = "hidden";
     document.addEventListener("keydown", handleKeyDown);
@@ -243,7 +312,7 @@ function MainApp() {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isSidebarOpen, drawerGuideId, isContactDirectoryOpen]);
+  }, [drawerGuideId, isContactDirectoryOpen]);
 
   const selectedGuide = quickGuides.find((guide) => guide.id === activeView);
   const drawerGuide = quickGuides.find((guide) => guide.id === drawerGuideId);
@@ -285,7 +354,6 @@ function MainApp() {
     setActiveView("response");
     setDrawerGuideId(null);
     setIsContactDirectoryOpen(false);
-    setIsSidebarOpen(false);
     setHomeGuideId(null);
     handleClear();
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -309,6 +377,14 @@ function MainApp() {
     )?.focus();
   };
 
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } finally {
+      onLoggedOut();
+    }
+  };
+
   return (
     <div
       className="min-h-screen"
@@ -318,148 +394,118 @@ function MainApp() {
         fontFamily: "var(--font-family)",
       }}
     >
-      <header
-        className="sticky top-0 z-30 border-b"
-        style={{ background: "rgba(255,255,255,0.96)", borderColor: "var(--border)" }}
-      >
-        <div className="mx-auto flex max-w-[960px] items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setIsSidebarOpen((open) => !open)}
-              aria-label="업무 메뉴 열기"
-              aria-expanded={isSidebarOpen}
-              aria-controls="work-sidebar"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border bg-white transition-colors hover:bg-[#EAF6FC] md:hidden"
-              style={{ borderColor: "var(--border)", color: "var(--foreground)" }}
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={handleGoHome}
-              aria-label="민원 응대 홈으로 이동"
-              title="민원 응대 홈"
-              className="rounded-lg p-1 transition-opacity hover:opacity-75 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#036EB8] focus-visible:ring-offset-2"
-            >
-              <img src={yusungLogo} alt="유성구 로고" className="h-10 w-auto object-contain sm:h-11" />
-            </button>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={openMiniChat}
-              aria-label="미니 응대 열기"
-              title="미니 응대"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-[#F7FCFF]"
-              style={{ borderColor: "var(--brand-green)", color: "var(--brand-green)" }}
-            >
-              <MessagesSquare className="h-4.5 w-4.5" />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setDrawerGuideId(null);
-                setIsSidebarOpen(false);
-                setIsContactDirectoryOpen(true);
-              }}
-              aria-label="전화번호부 열기"
-              aria-expanded={isContactDirectoryOpen}
-              aria-controls="contact-directory-drawer"
-              title="전화번호부"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors hover:bg-[#F7FCFF]"
-              style={{ borderColor: "var(--brand-green)", color: "var(--brand-green)" }}
-            >
-              <BookUser className="h-4.5 w-4.5" />
-            </button>
-            <div
-              className="inline-flex items-center gap-2 rounded-full border px-3 py-2 text-xs font-semibold"
-              style={{ background: "var(--brand-red-light)", borderColor: "var(--brand-red)", color: "var(--brand-red-dark)" }}
-            >
-              <Moon className="h-3.5 w-3.5" />
-              야간당직 중
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {isSidebarOpen && (
-          <button
-            type="button"
-            aria-label="업무 메뉴 닫기"
-            className="fixed inset-0 z-40 md:hidden"
-            onClick={() => setIsSidebarOpen(false)}
-          />
-      )}
-
       <aside
         id="work-sidebar"
         aria-label="업무 메뉴"
-        data-state={isSidebarOpen ? "expanded" : "collapsed"}
-        className={`fixed bottom-0 left-0 top-[77px] flex flex-col bg-[var(--sidebar)] transition-[width,transform] duration-200 ease-out ${
+        data-state="expanded"
+        className={`fixed inset-y-0 left-0 flex w-[180px] bg-[var(--sidebar)] p-2 ${
           drawerGuideId || isContactDirectoryOpen ? "z-30" : "z-50"
-        } ${
-          isSidebarOpen
-            ? "w-[260px] translate-x-0"
-            : "invisible w-[260px] -translate-x-full pointer-events-none md:visible md:w-[72px] md:translate-x-0 md:pointer-events-auto"
         }`}
       >
-            <div className={`flex h-14 items-center ${isSidebarOpen ? "justify-end px-4" : "justify-center"}`}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[24px] border bg-white" style={{ borderColor: "var(--border)" }}>
+          <button
+            type="button"
+            onClick={handleGoHome}
+            aria-label="민원 응대 홈으로 이동"
+            className="border-b px-4 py-6 text-center transition-colors hover:bg-[#F7FCFF] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#036EB8]"
+            style={{ borderColor: "var(--border)" }}
+          >
+            <img src={yusungLogo} alt="유성구 로고" className="mx-auto h-11 w-auto object-contain" />
+            <span className="mt-3 block text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>
+              당직 근무 지원
+            </span>
+          </button>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+            <p className="mb-2 px-3 text-[11px] font-bold" style={{ color: "var(--muted-foreground)" }}>
+              업무 메뉴
+            </p>
+            <nav className="space-y-1" aria-label="업무 카테고리">
+              {[
+                ...NAV_ITEMS,
+                ...(user.role === "admin"
+                  ? [{ id: "admin" as const, label: "관리자", icon: Settings }]
+                  : []),
+              ].map(({ id, label, icon: Icon }) => {
+                const isActive = DRAWER_GUIDE_IDS.has(id)
+                  ? drawerGuideId === id
+                  : activeView === id && !isContactDirectoryOpen;
+
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => {
+                      setIsContactDirectoryOpen(false);
+                      if (DRAWER_GUIDE_IDS.has(id)) {
+                        setDrawerGuideId(id);
+                      } else {
+                        setDrawerGuideId(null);
+                        setActiveView(id);
+                      }
+                    }}
+                    aria-current={isActive ? "page" : undefined}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-sm font-bold transition-colors"
+                    style={{
+                      background: isActive ? "#E7F0FC" : "transparent",
+                      color: isActive ? "#0B4DA2" : "var(--muted-foreground)",
+                    }}
+                  >
+                    <Icon className="h-[18px] w-[18px] flex-shrink-0" />
+                    <span className="whitespace-nowrap">{label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+
+            <div className="mt-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+              <p className="mb-2 px-3 text-[11px] font-bold" style={{ color: "var(--muted-foreground)" }}>
+                지원 도구
+              </p>
               <button
                 type="button"
-                onClick={() => setIsSidebarOpen((open) => !open)}
-                aria-label={isSidebarOpen ? "업무 메뉴 접기" : "업무 메뉴 펼치기"}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-white"
+                onClick={openMiniChat}
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-sm font-bold transition-colors hover:bg-[#F2F7FC]"
                 style={{ color: "var(--muted-foreground)" }}
               >
-                {isSidebarOpen ? (
-                  <PanelLeftClose className="h-5 w-5" />
-                ) : (
-                  <PanelLeftOpen className="h-5 w-5" />
-                )}
+                <MessagesSquare className="h-[18px] w-[18px] flex-shrink-0" />
+                <span>미니 응대</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setDrawerGuideId(null);
+                  setIsContactDirectoryOpen(true);
+                }}
+                aria-expanded={isContactDirectoryOpen}
+                aria-controls="contact-directory-drawer"
+                className="flex w-full items-center gap-2.5 rounded-xl px-3 py-3 text-left text-sm font-bold transition-colors"
+                style={{
+                  background: isContactDirectoryOpen ? "#E7F0FC" : "transparent",
+                  color: isContactDirectoryOpen ? "#0B4DA2" : "var(--muted-foreground)",
+                }}
+              >
+                <BookUser className="h-[18px] w-[18px] flex-shrink-0" />
+                <span>연락처</span>
               </button>
             </div>
-            <nav className={`flex-1 overflow-y-auto py-2 ${isSidebarOpen ? "px-4" : "px-2"}`} aria-label="업무 카테고리">
-            {NAV_ITEMS.map(({ id, label, icon: Icon }) => {
-              const isActive = DRAWER_GUIDE_IDS.has(id)
-                ? drawerGuideId === id
-                : activeView === id;
+          </div>
 
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => {
-                    if (DRAWER_GUIDE_IDS.has(id)) {
-                      setIsContactDirectoryOpen(false);
-                      setDrawerGuideId(id);
-                    } else {
-                      setDrawerGuideId(null);
-                      setActiveView(id);
-                    }
-                    setIsSidebarOpen(false);
-                  }}
-                  aria-current={isActive ? "page" : undefined}
-                  title={isSidebarOpen ? undefined : label}
-                  className={`flex w-full items-center py-3.5 text-left transition-colors hover:text-[#036EB8] ${
-                    isSidebarOpen ? "gap-3 px-2" : "justify-center px-0"
-                  } ${id === "duty_basics" || id === "full_manual" ? "mt-2 border-t pt-5" : ""}`}
-                  style={{
-                    borderColor: id === "duty_basics" || id === "full_manual" ? "var(--sidebar-border)" : undefined,
-                    color: isActive ? "var(--brand-green)" : "var(--foreground)",
-                  }}
-                >
-                  <Icon className="h-5 w-5 flex-shrink-0" />
-                  {isSidebarOpen && <span className="whitespace-nowrap text-sm font-bold">{label}</span>}
+          <div className="border-t p-3" style={{ borderColor: "var(--border)" }}>
+            <div className="rounded-2xl px-3 py-3" style={{ background: "#F2F6FC" }}>
+              <div className="flex items-center gap-2 text-sm font-extrabold" style={{ color: "var(--foreground)" }}>
+                <Moon className="h-4 w-4" style={{ color: "var(--brand-red)" }} />
+                <span className="min-w-0 flex-1 truncate">{user.displayName}</span>
+                <button type="button" onClick={() => void handleLogout()} aria-label="로그아웃" title="로그아웃" className="rounded-lg p-1" style={{ color: "var(--muted-foreground)" }}>
+                  <LogOut className="h-4 w-4" />
                 </button>
-              );
-            })}
-            </nav>
-            {isSidebarOpen && (
-              <p className="border-t px-5 py-4 text-[11px] leading-5" style={{ borderColor: "var(--sidebar-border)", color: "var(--muted-foreground)" }}>
-                공식 당직 매뉴얼과 과거 민원 처리 사례를 기준으로 안내합니다.
+              </div>
+              <p className="mt-1 pl-6 text-[11px]" style={{ color: "var(--muted-foreground)" }}>
+                {user.role === "admin" ? "관리자 · 야간당직" : "야간당직"}
               </p>
-            )}
+            </div>
+          </div>
+        </div>
       </aside>
 
       {drawerGuideId && (
@@ -561,7 +607,7 @@ function MainApp() {
         </>
       )}
 
-      <div className={`transition-[padding] duration-200 ease-out ${isSidebarOpen ? "md:pl-[260px]" : "md:pl-[72px]"}`}>
+      <div className="pl-[180px]">
         <main
           className={`mx-auto w-full max-w-[960px] px-5 py-10 ${activeView === "response" ? "" : "pb-28"}`}
         >
@@ -748,6 +794,17 @@ function MainApp() {
                 </section>
               )}
             </>
+          ) : activeView === "admin" && user.role === "admin" ? (
+            <AdminPage
+              onGuidesChanged={() => {
+                fetchQuickGuides()
+                  .then((response) => {
+                    setQuickGuides(response.guides);
+                    setQuickGuideSource(response.source);
+                  })
+                  .catch(() => undefined);
+              }}
+            />
           ) : activeView === "full_manual" ? (
             manualCatalog ? (
               <ManualCatalogView catalog={manualCatalog} />
