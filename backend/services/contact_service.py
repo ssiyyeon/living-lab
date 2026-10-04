@@ -6,6 +6,9 @@ from datetime import (
     timezone,
 )
 
+import json
+from pathlib import Path
+
 from typing import Any
 
 from backend.database import (
@@ -24,6 +27,29 @@ CONTACT_NOTICE = (
     "개인 연락처는 등록하지 말고 "
     "부서 또는 기관의 공개 연락처만 사용해 주세요."
 )
+
+ROOT_DIR = (
+    Path(__file__)
+    .resolve()
+    .parents[2]
+)
+
+DEPARTMENT_CONTACTS_PATH = (
+    ROOT_DIR
+    / "data"
+    / "contacts"
+    / "department_contacts.json"
+)
+
+QUICK_GUIDES_PATH = (
+    ROOT_DIR
+    / "data"
+    / "manual"
+    / "quick_guides.json"
+)
+
+PUBLIC_DIRECTORY_SOURCE = "유성구 공개 부서 연락처"
+MANUAL_CONTACT_SOURCE = "당직 근무요령 및 상황별 매뉴얼"
 
 
 # ---------------------------------------------------------
@@ -143,6 +169,338 @@ def _parse_contact_id(
 # ---------------------------------------------------------
 
 class ContactService:
+
+    def __init__(self) -> None:
+        self.verified_at = _today()
+        self.notice = CONTACT_NOTICE
+        self._seed_default_contacts()
+
+
+    # -----------------------------------------------------
+    # 기존 JSON 전화번호부를 새 DB에 한 번만 등록
+    # -----------------------------------------------------
+
+    def _load_json(
+        self,
+        path: Path,
+    ) -> dict[str, Any]:
+
+        if not path.exists():
+            return {}
+
+        try:
+            with path.open(
+                "r",
+                encoding="utf-8",
+            ) as file:
+                data = json.load(file)
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ):
+            return {}
+
+        return data if isinstance(data, dict) else {}
+
+
+    def _default_contacts(
+        self,
+    ) -> list[dict[str, str]]:
+
+        department_data = self._load_json(
+            DEPARTMENT_CONTACTS_PATH
+        )
+
+        quick_guide_data = self._load_json(
+            QUICK_GUIDES_PATH
+        )
+
+        self.verified_at = _clean(
+            department_data.get(
+                "verifiedAt",
+                "",
+            )
+        ) or _today()
+
+        source_notice = _clean(
+            department_data.get(
+                "notice",
+                "",
+            )
+        )
+
+        if source_notice:
+            self.notice = (
+                f"{source_notice} "
+                "직원 개인 연락처와 비공개 비상연락망은 포함하지 않습니다."
+            )
+
+        contacts: list[dict[str, str]] = []
+
+        default_contact = department_data.get(
+            "defaultContact"
+        )
+
+        if isinstance(default_contact, dict):
+            contacts.append(
+                {
+                    "seedKey": "department:default",
+                    "group": "대표·당직",
+                    "organization": _clean(
+                        default_contact.get(
+                            "department",
+                            "유성구청",
+                        )
+                    ),
+                    "label": _clean(
+                        default_contact.get(
+                            "label",
+                            "대표전화",
+                        )
+                    ),
+                    "phone": _clean(
+                        default_contact.get(
+                            "phone",
+                            "",
+                        )
+                    ),
+                    "note": _clean(
+                        default_contact.get(
+                            "note",
+                            "",
+                        )
+                    ),
+                    "source": PUBLIC_DIRECTORY_SOURCE,
+                    "sourceUrl": _clean(
+                        default_contact.get(
+                            "sourceUrl",
+                            "",
+                        )
+                    ),
+                }
+            )
+
+        guides = quick_guide_data.get(
+            "guides",
+            [],
+        )
+
+        if isinstance(guides, list):
+            emergency_guide = next(
+                (
+                    guide
+                    for guide in guides
+                    if isinstance(guide, dict)
+                    and guide.get("id") == "emergency_contacts"
+                ),
+                {},
+            )
+
+            emergency_contacts = emergency_guide.get(
+                "contacts",
+                [],
+            ) if isinstance(emergency_guide, dict) else []
+
+            if isinstance(emergency_contacts, list):
+                for index, contact in enumerate(
+                    emergency_contacts
+                ):
+                    if not isinstance(contact, dict):
+                        continue
+
+                    contacts.append(
+                        {
+                            "seedKey": f"emergency:{index}",
+                            "group": _clean(
+                                contact.get(
+                                    "group",
+                                    "대표·당직",
+                                )
+                            ),
+                            "organization": _clean(
+                                contact.get(
+                                    "organization",
+                                    "",
+                                )
+                            ),
+                            "label": _clean(
+                                contact.get(
+                                    "label",
+                                    "",
+                                )
+                            ),
+                            "phone": _clean(
+                                contact.get(
+                                    "phone",
+                                    "",
+                                )
+                            ),
+                            "note": _clean(
+                                contact.get(
+                                    "note",
+                                    "",
+                                )
+                            ),
+                            "source": MANUAL_CONTACT_SOURCE,
+                            "sourceUrl": "",
+                        }
+                    )
+
+        department_contacts = department_data.get(
+            "contacts",
+            [],
+        )
+
+        if isinstance(department_contacts, list):
+            for index, contact in enumerate(
+                department_contacts
+            ):
+                if not isinstance(contact, dict):
+                    continue
+
+                contacts.append(
+                    {
+                        "seedKey": f"department:{index}",
+                        "group": "담당 부서",
+                        "organization": _clean(
+                            contact.get(
+                                "department",
+                                "",
+                            )
+                        ),
+                        "label": _clean(
+                            contact.get(
+                                "label",
+                                "",
+                            )
+                        ),
+                        "phone": _clean(
+                            contact.get(
+                                "phone",
+                                "",
+                            )
+                        ),
+                        "note": _clean(
+                            contact.get(
+                                "note",
+                                "",
+                            )
+                        ),
+                        "source": PUBLIC_DIRECTORY_SOURCE,
+                        "sourceUrl": _clean(
+                            contact.get(
+                                "sourceUrl",
+                                "",
+                            )
+                        ),
+                    }
+                )
+
+        return [
+            contact
+            for contact in contacts
+            if contact["organization"]
+            and contact["label"]
+            and contact["phone"]
+        ]
+
+
+    def _seed_default_contacts(
+        self,
+    ) -> None:
+
+        contacts = self._default_contacts()
+
+        if not contacts:
+            return
+
+        now = _now_iso()
+
+        with get_connection() as connection:
+            for contact in contacts:
+                registered = connection.execute(
+                    """
+                    SELECT contact_id
+                    FROM contact_seed_registry
+                    WHERE seed_key = ?
+                    """,
+                    (
+                        contact["seedKey"],
+                    ),
+                ).fetchone()
+
+                if registered is not None:
+                    continue
+
+                existing = connection.execute(
+                    """
+                    SELECT id
+                    FROM public_contacts
+                    WHERE organization = ?
+                      AND label = ?
+                      AND phone = ?
+                    ORDER BY id
+                    LIMIT 1
+                    """,
+                    (
+                        contact["organization"],
+                        contact["label"],
+                        contact["phone"],
+                    ),
+                ).fetchone()
+
+                if existing is None:
+                    cursor = connection.execute(
+                        """
+                        INSERT INTO public_contacts (
+                            contact_group,
+                            organization,
+                            label,
+                            phone,
+                            note,
+                            source,
+                            source_url,
+                            is_hidden,
+                            created_at,
+                            updated_at,
+                            updated_by
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, NULL)
+                        """,
+                        (
+                            contact["group"],
+                            contact["organization"],
+                            contact["label"],
+                            contact["phone"],
+                            contact["note"],
+                            contact["source"],
+                            contact["sourceUrl"],
+                            now,
+                            now,
+                        ),
+                    )
+
+                    contact_id = int(
+                        cursor.lastrowid
+                    )
+                else:
+                    contact_id = int(
+                        existing["id"]
+                    )
+
+                connection.execute(
+                    """
+                    INSERT INTO contact_seed_registry (
+                        seed_key,
+                        contact_id
+                    )
+                    VALUES (?, ?)
+                    """,
+                    (
+                        contact["seedKey"],
+                        contact_id,
+                    ),
+                )
 
     # -----------------------------------------------------
     # DB row → 프론트용 데이터
@@ -266,15 +624,15 @@ class ContactService:
         return {
 
             "source": (
-                "관리자 관리 공용 전화번호부"
+                "공식 공개 연락처 및 관리자 관리 공용 전화번호부"
             ),
 
             "verifiedAt": (
-                _today()
+                self.verified_at
             ),
 
             "notice": (
-                CONTACT_NOTICE
+                self.notice
             ),
 
             "contacts": (

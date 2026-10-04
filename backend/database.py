@@ -212,6 +212,21 @@ def initialize_database() -> None:
             """
         )
 
+        # JSON 원본 연락처를 DB에 한 번만 연결하기 위한 등록부입니다.
+        # 연락처가 관리 화면에서 수정되거나 숨김 처리되어도 seed_key가
+        # 남아 있으므로 서버 재시작 때 원본이 중복 생성되지 않습니다.
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS contact_seed_registry (
+                seed_key TEXT PRIMARY KEY,
+                contact_id INTEGER NOT NULL,
+                FOREIGN KEY (contact_id)
+                    REFERENCES public_contacts(id)
+                    ON DELETE CASCADE
+            )
+            """
+        )
+
         # 기존 전체 매뉴얼을 관리자가 수정한 경우
         # 원본 JSON은 건드리지 않고 수정본만 저장
         connection.execute(
@@ -256,6 +271,13 @@ def initialize_database() -> None:
             """
             CREATE INDEX IF NOT EXISTS idx_public_contacts_hidden
             ON public_contacts(is_hidden)
+            """
+        )
+
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_contact_seed_registry_contact
+            ON contact_seed_registry(contact_id)
             """
         )
 
