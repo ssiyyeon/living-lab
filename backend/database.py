@@ -6,6 +6,8 @@ from pathlib import Path
 
 BACKEND_DIR = Path(__file__).resolve().parent
 DATABASE_PATH = BACKEND_DIR / "living_lab.db"
+LEGACY_DATABASE_PATH = BACKEND_DIR.parent / "data" / "runtime" / "dutory.sqlite3"
+LEGACY_PASSWORD_ITERATIONS = 310_000
 
 
 def get_connection() -> sqlite3.Connection:
@@ -13,6 +15,119 @@ def get_connection() -> sqlite3.Connection:
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
     return connection
+
+
+def _legacy_table_names(connection: sqlite3.Connection) -> set[str]:
+    return {
+        str(row[0])
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table'"
+        ).fetchall()
+    }
+
+
+def _migrate_legacy_database(connection: sqlite3.Connection) -> None:
+    """기존 feature/frontend DB를 새 백엔드 스키마로 한 번만 이전합니다."""
+    if not LEGACY_DATABASE_PATH.exists():
+        return
+
+    current_user_count = connection.execute(
+        "SELECT COUNT(*) FROM users"
+    ).fetchone()[0]
+    if int(current_user_count) > 0:
+        return
+
+    legacy = sqlite3.connect(LEGACY_DATABASE_PATH)
+    legacy.row_factory = sqlite3.Row
+    try:
+        tables = _legacy_table_names(legacy)
+        if "users" not in tables:
+            return
+
+        for row in legacy.execute("SELECT * FROM users ORDER BY id"):
+            legacy_password = (
+                f"pbkdf2_sha256${LEGACY_PASSWORD_ITERATIONS}"
+                f"${row['password_salt']}${row['password_hash']}"
+            )
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO users (
+                    id, username, display_name, password_hash, role, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row["id"],
+                    row["username"],
+                    row["display_name"],
+                    legacy_password,
+                    row["role"],
+                    row["created_at"],
+                ),
+            )
+
+        if "sessions" in tables:
+            for row in legacy.execute("SELECT * FROM sessions"):
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO sessions (
+                        token_hash, user_id, created_at, expires_at
+                    ) VALUES (?, ?, ?, ?)
+                    """,
+                    (
+                        row["token_hash"],
+                        row["user_id"],
+                        row["created_at"],
+                        row["expires_at"],
+                    ),
+                )
+
+        if "admin_contacts" in tables:
+            for row in legacy.execute(
+                "SELECT * FROM admin_contacts WHERE is_deleted = 0 ORDER BY created_at"
+            ):
+                connection.execute(
+                    """
+                    INSERT INTO public_contacts (
+                        contact_group, organization, label, phone, note,
+                        source, source_url, is_hidden, created_at, updated_at, updated_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+                    """,
+                    (
+                        row["group_name"],
+                        row["organization"],
+                        row["label"],
+                        row["phone"],
+                        row["note"],
+                        "이전 버전 관리자 등록",
+                        row["source_url"],
+                        row["created_at"],
+                        row["updated_at"],
+                        row["updated_by"],
+                    ),
+                )
+
+        if "guide_overrides" in tables:
+            for row in legacy.execute("SELECT * FROM guide_overrides"):
+                connection.execute(
+                    """
+                    INSERT OR REPLACE INTO guide_overrides (
+                        guide_id, title, description, sections_json, cautions_json,
+                        created_at, updated_at, updated_by
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        row["guide_id"],
+                        row["title"],
+                        row["description"],
+                        row["sections_json"],
+                        row["cautions_json"],
+                        row["created_at"],
+                        row["updated_at"],
+                        row["updated_by"],
+                    ),
+                )
+    finally:
+        legacy.close()
 
 
 def initialize_database() -> None:
@@ -157,6 +272,8 @@ def initialize_database() -> None:
             ON manual_custom_entries(updated_at)
             """
         )
+
+        _migrate_legacy_database(connection)
 
 
 initialize_database()

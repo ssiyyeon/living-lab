@@ -30,6 +30,7 @@ SESSION_MAX_AGE_SECONDS = (
 SCRYPT_N = 2**14
 SCRYPT_R = 8
 SCRYPT_P = 1
+LEGACY_PASSWORD_ITERATIONS = 310_000
 
 
 def _utc_now() -> datetime:
@@ -119,6 +120,19 @@ def _verify_password(
     사용자가 입력한 비밀번호와
     DB에 저장된 해시 비밀번호를 비교
     """
+
+    if stored_password.startswith("pbkdf2_sha256$"):
+        try:
+            _, iterations, salt, expected = stored_password.split("$", 3)
+            digest = hashlib.pbkdf2_hmac(
+                "sha256",
+                password.encode("utf-8"),
+                base64.b64decode(salt),
+                int(iterations),
+            )
+            return hmac.compare_digest(digest, base64.b64decode(expected))
+        except (ValueError, TypeError):
+            return False
 
     try:
 

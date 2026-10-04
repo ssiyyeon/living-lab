@@ -38,6 +38,7 @@ router = APIRouter(
 SESSION_COOKIE_NAME = (
     "living_lab_session"
 )
+LEGACY_SESSION_COOKIE_NAME = "dutory_session"
 
 
 # ---------------------------------------------------------
@@ -52,6 +53,11 @@ def _set_session_cookie(
     로그인 성공 후 생성된 세션 토큰을
     브라우저 쿠키에 저장합니다.
     """
+
+    response.delete_cookie(
+        key=LEGACY_SESSION_COOKIE_NAME,
+        path="/",
+    )
 
     response.set_cookie(
         key=SESSION_COOKIE_NAME,
@@ -95,6 +101,8 @@ def get_current_user(
 
     token = request.cookies.get(
         SESSION_COOKIE_NAME
+    ) or request.cookies.get(
+        LEGACY_SESSION_COOKIE_NAME
     )
 
     user = (
@@ -345,6 +353,8 @@ def logout(
 
     token = request.cookies.get(
         SESSION_COOKIE_NAME
+    ) or request.cookies.get(
+        LEGACY_SESSION_COOKIE_NAME
     )
 
     auth_service.logout(
@@ -353,6 +363,11 @@ def logout(
 
     response.delete_cookie(
         key=SESSION_COOKIE_NAME,
+        path="/",
+    )
+
+    response.delete_cookie(
+        key=LEGACY_SESSION_COOKIE_NAME,
         path="/",
     )
 
