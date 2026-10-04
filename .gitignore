@@ -1,12 +1,21 @@
 # Python virtual environment
 .venv/
 
+
 # Python cache
 __pycache__/
 *.pyc
 
+
 # VS Code
 .vscode/
 
+
 # Search index cache
 search/index/
+
+
+# SQLite database
+backend/living_lab.db
+backend/living_lab.db-wal
+backend/living_lab.db-shm
