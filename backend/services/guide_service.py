@@ -36,6 +36,13 @@ MANUAL_SECTIONS_PATH = (
     / "manual_sections.json"
 )
 
+QUICK_GUIDES_PATH = (
+    ROOT_DIR
+    / "data"
+    / "manual"
+    / "quick_guides.json"
+)
+
 
 SOURCE_NAME = (
     "당직 근무요령 및 상황별 매뉴얼"
@@ -59,6 +66,26 @@ GUIDE_CONFIG = {
         ),
 
         "matcher": "timeline",
+    },
+
+    "duty_log": {
+        "title": "당직근무일지 작성",
+
+        "description": (
+            "근무 시작 시 당직보고를 만들고, 종료 전 상세현황과 순찰점검을 완성합니다."
+        ),
+
+        "matcher": "duty_log",
+    },
+
+    "complaint_registration": {
+        "title": "당직민원 등록",
+
+        "description": (
+            "접수한 민원을 누락 없이 기록하고 처리부서를 지정하는 방법입니다."
+        ),
+
+        "matcher": "complaint_registration",
     },
 
     "duty_basics": {
@@ -249,6 +276,47 @@ class GuideService:
 
 
     # -----------------------------------------------------
+    # 기존 프론트에서 사용하던 빠른 업무 안내 읽기
+    #
+    # 정리된 제목, 시간대, 주의사항을 그대로 기본값으로 사용하고
+    # 관리자가 수정한 경우에는 DB의 수정본을 우선합니다.
+    # -----------------------------------------------------
+
+    def _load_quick_guides(
+        self,
+    ) -> dict[str, dict[str, Any]]:
+
+        if not QUICK_GUIDES_PATH.exists():
+            return {}
+
+        try:
+            with QUICK_GUIDES_PATH.open(
+                "r",
+                encoding="utf-8",
+            ) as file:
+                data = json.load(file)
+        except (
+            OSError,
+            json.JSONDecodeError,
+        ):
+            return {}
+
+        if not isinstance(data, dict):
+            return {}
+
+        guides = data.get("guides", [])
+
+        if not isinstance(guides, list):
+            return {}
+
+        return {
+            str(guide["id"]): guide
+            for guide in guides
+            if isinstance(guide, dict) and guide.get("id")
+        }
+
+
+    # -----------------------------------------------------
     # 매뉴얼 항목 분류
     # -----------------------------------------------------
 
@@ -434,6 +502,11 @@ class GuideService:
             ._load_manual_sections()
         )
 
+        quick_guides = (
+            self
+            ._load_quick_guides()
+        )
+
         result: dict[
             str,
             dict[str, Any],
@@ -447,6 +520,88 @@ class GuideService:
             GUIDE_CONFIG
             .items()
         ):
+
+            curated = quick_guides.get(
+                guide_id
+            )
+
+            if curated is not None:
+
+                sections = []
+
+                for section in curated.get(
+                    "sections",
+                    [],
+                ):
+
+                    if not isinstance(
+                        section,
+                        dict,
+                    ):
+                        continue
+
+                    normalized = _normalize_section(
+                        section
+                    )
+
+                    normalized["addedAt"] = None
+
+                    sections.append(
+                        normalized
+                    )
+
+                result[guide_id] = {
+                    "id": guide_id,
+                    "title": _clean(
+                        curated.get(
+                            "title",
+                            config["title"],
+                        )
+                    ),
+                    "description": _clean(
+                        curated.get(
+                            "description",
+                            config["description"],
+                        )
+                    ),
+                    "sourcePages": [
+                        page
+                        for page in curated.get(
+                            "sourcePages",
+                            [],
+                        )
+                        if isinstance(page, int)
+                    ],
+                    "sections": sections,
+                    "cautions": [
+                        _clean(value)
+                        for value in curated.get(
+                            "cautions",
+                            [],
+                        )
+                        if _clean(value)
+                    ],
+                    "contacts": [
+                        contact
+                        for contact in curated.get(
+                            "contacts",
+                            [],
+                        )
+                        if isinstance(contact, dict)
+                    ],
+                    "restrictedNotice": (
+                        _clean(
+                            curated.get(
+                                "restrictedNotice",
+                                "",
+                            )
+                        )
+                        or None
+                    ),
+                    "updatedAt": None,
+                }
+
+                continue
 
             selected = [
 
