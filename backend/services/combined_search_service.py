@@ -8,6 +8,10 @@ from backend.services.guide_service import (
     guide_service,
 )
 
+from backend.services.manual_service import (
+    manual_service,
+)
+
 from backend.services.search_service import (
     NO_MATCH_MESSAGE,
     SearchServiceUnavailable,
@@ -16,42 +20,32 @@ from backend.services.search_service import (
 
 
 class CombinedSearchService:
-    """
-    기존 데이터팀 검색 결과와
-    관리자가 수정/추가한 안내 검색 결과를
-    하나로 합쳐주는 서비스
-    """
 
     @property
     def is_ready(
         self,
     ) -> bool:
-        """
-        기존 검색엔진이 준비되어 있거나
-        관리자 수정 데이터가 있으면 검색 가능
-        """
-
         return (
             base_search_service.is_ready
-            or
-            guide_service.has_overrides()
+            or guide_service.has_overrides()
+            or manual_service.has_admin_changes()
         )
+
 
     @property
     def load_error(
         self,
     ) -> str | None:
-        """
-        검색 준비 상태 확인용
-        """
-
         if base_search_service.is_ready:
             return None
 
-        if guide_service.has_overrides():
+        if (
+            guide_service.has_overrides()
+            or manual_service.has_admin_changes()
+        ):
             return (
                 "기존 검색엔진은 준비되지 않았지만 "
-                "관리자 반영 안내 검색은 사용할 수 있습니다."
+                "관리자 반영 내용 검색은 사용할 수 있습니다."
             )
 
         return (
@@ -59,23 +53,15 @@ class CombinedSearchService:
             .load_error
         )
 
+
     def search(
         self,
         query: str,
         top_k: int = 3,
     ) -> dict[str, Any]:
-        """
-        최종 검색 함수
-
-        1. 관리자 수정/추가 내용 검색
-        2. 기존 데이터팀 검색
-        3. 두 결과 합치기
-        """
-
         query = query.strip()
 
         if not query:
-
             return self._empty_response(
                 query=query,
                 message=(
@@ -83,11 +69,12 @@ class CombinedSearchService:
                 ),
             )
 
+
         # -------------------------------------------------
-        # 1. 관리자가 추가/수정한 내용 검색
+        # 기존 업무안내 관리자 수정본 검색
         # -------------------------------------------------
 
-        admin_matches = (
+        guide_matches = (
             guide_service
             .search_overrides(
                 query=query,
@@ -95,22 +82,60 @@ class CombinedSearchService:
             )
         )
 
-        admin_results = (
+        guide_admin_results = (
             self
-            ._make_admin_results(
+            ._make_guide_admin_results(
                 query=query,
-                matches=admin_matches,
+                matches=guide_matches,
             )
         )
 
+
         # -------------------------------------------------
-        # 2. 기존 데이터팀 검색
+        # 전체 매뉴얼 관리자 수정/추가본 검색
+        # -------------------------------------------------
+
+        manual_matches = (
+            manual_service
+            .search_admin_changes(
+                query=query,
+                top_k=top_k,
+            )
+        )
+
+        manual_admin_results = (
+            self
+            ._make_manual_admin_results(
+                query=query,
+                matches=manual_matches,
+            )
+        )
+
+
+        # 관리자 결과 합치기
+        admin_results = (
+            manual_admin_results
+            + guide_admin_results
+        )
+
+        admin_results.sort(
+            key=lambda item: int(
+                item.get(
+                    "relevance",
+                    0,
+                )
+            ),
+            reverse=True,
+        )
+
+
+        # -------------------------------------------------
+        # 기존 데이터팀 검색
         # -------------------------------------------------
 
         base_response = None
 
         if base_search_service.is_ready:
-
             base_response = (
                 base_search_service
                 .search(
@@ -119,11 +144,7 @@ class CombinedSearchService:
                 )
             )
 
-        # 기존 검색엔진도 없고
-        # 관리자 검색 결과도 없으면
-        # 검색 불가능
         elif not admin_results:
-
             raise SearchServiceUnavailable(
                 base_search_service.load_error
                 or
@@ -133,13 +154,12 @@ class CombinedSearchService:
                 )
             )
 
-        # 기존 검색 결과 배열
+
         base_results: list[
             dict[str, Any]
         ] = []
 
         if base_response:
-
             base_results = list(
                 base_response.get(
                     "results",
@@ -147,8 +167,36 @@ class CombinedSearchService:
                 )
             )
 
+
         # -------------------------------------------------
-        # 3. 관리자 결과 + 기존 결과 합치기
+        # 관리자가 수정한 기존 매뉴얼 항목은
+        # 원래 JSON 검색 결과가 다시 나오지 않게 제외
+        # -------------------------------------------------
+
+        overridden_manual_ids = (
+            manual_service
+            .modified_entry_ids()
+        )
+
+        if overridden_manual_ids:
+            base_results = [
+                result
+
+                for result
+                in base_results
+
+                if str(
+                    result.get(
+                        "id",
+                        "",
+                    )
+                )
+                not in overridden_manual_ids
+            ]
+
+
+        # -------------------------------------------------
+        # 관리자 결과 + 기존 결과 합치기
         # -------------------------------------------------
 
         combined_results: list[
@@ -157,13 +205,10 @@ class CombinedSearchService:
 
         used_ids: set[str] = set()
 
-        # 관리자가 변경한 내용을 먼저 넣고
-        # 그 다음 기존 검색 결과를 넣음
         for result in (
             admin_results
             + base_results
         ):
-
             result_id = str(
                 result.get(
                     "id",
@@ -171,16 +216,13 @@ class CombinedSearchService:
                 )
             )
 
-            # 같은 결과 중복 방지
             if (
                 result_id
-                and
-                result_id in used_ids
+                and result_id in used_ids
             ):
                 continue
 
             if result_id:
-
                 used_ids.add(
                     result_id
                 )
@@ -189,7 +231,6 @@ class CombinedSearchService:
                 result
             )
 
-            # 프론트에서 요청한 개수까지만 반환
             if (
                 len(
                     combined_results
@@ -198,25 +239,25 @@ class CombinedSearchService:
             ):
                 break
 
+
         # -------------------------------------------------
-        # 검색 결과가 하나도 없는 경우
+        # 결과 없음
         # -------------------------------------------------
 
         if not combined_results:
-
-            # 기존 검색 서비스가 이미
-            # no_match 응답을 만들었다면 그대로 사용
             if base_response:
-
                 return base_response
 
             return self._empty_response(
                 query=query,
-                message=NO_MATCH_MESSAGE,
+                message=(
+                    NO_MATCH_MESSAGE
+                ),
             )
 
+
         # -------------------------------------------------
-        # 관련 부서 정리
+        # 추천 부서
         # -------------------------------------------------
 
         recommended_departments: list[
@@ -224,31 +265,52 @@ class CombinedSearchService:
         ] = []
 
         for result in combined_results:
-
             for department in (
                 result.get(
                     "departments",
                     [],
                 )
             ):
-
                 if (
                     department
-                    and
-                    department
-                    not in
-                    recommended_departments
+                    and department
+                    not in recommended_departments
                 ):
-
                     recommended_departments.append(
                         department
                     )
 
-        # 관리자 수정 내용이 검색됐다면
-        # 일반 매뉴얼 검색 결과처럼 처리
-        if admin_results:
 
-            tier = "manual_exact"
+        admin_ids = {
+            str(
+                result.get(
+                    "id",
+                    "",
+                )
+            )
+
+            for result
+            in admin_results
+        }
+
+        has_admin_result = any(
+            str(
+                result.get(
+                    "id",
+                    "",
+                )
+            )
+            in admin_ids
+
+            for result
+            in combined_results
+        )
+
+
+        if has_admin_result:
+            tier = (
+                "manual_exact"
+            )
 
             message = (
                 "당직 매뉴얼에서 "
@@ -256,7 +318,6 @@ class CombinedSearchService:
             )
 
         else:
-
             tier = str(
                 (
                     base_response
@@ -277,13 +338,19 @@ class CombinedSearchService:
                 )
             )
 
+
         return {
+            "query": (
+                query
+            ),
 
-            "query": query,
+            "tier": (
+                tier
+            ),
 
-            "tier": tier,
-
-            "message": message,
+            "message": (
+                message
+            ),
 
             "resultCount": len(
                 combined_results
@@ -304,7 +371,12 @@ class CombinedSearchService:
             ),
         }
 
-    def _make_admin_results(
+
+    # -----------------------------------------------------
+    # 기존 업무안내 관리자 수정본 → SearchResult
+    # -----------------------------------------------------
+
+    def _make_guide_admin_results(
         self,
         query: str,
         matches: list[
@@ -313,16 +385,9 @@ class CombinedSearchService:
     ) -> list[
         dict[str, Any]
     ]:
-        """
-        guide_service가 찾은 관리자 수정 내용을
-        기존 SearchResult 모양으로 변환
-        """
-
         if not matches:
             return []
 
-        # 상대 관련도를 계산하기 위해
-        # 가장 높은 점수를 찾음
         max_score = max(
             float(
                 item.get(
@@ -330,10 +395,11 @@ class CombinedSearchService:
                     0,
                 )
             )
-            for item in matches
+
+            for item
+            in matches
         )
 
-        # 검색어 태그 생성
         query_terms = re.findall(
             r"[가-힣A-Za-z0-9]{2,}",
             query,
@@ -344,7 +410,6 @@ class CombinedSearchService:
         ] = []
 
         for match in matches:
-
             guide = (
                 match[
                     "guide"
@@ -369,9 +434,10 @@ class CombinedSearchService:
                 ]
             )
 
-            # 처리 단계 내용
             steps = [
-                str(step).strip()
+                str(
+                    step
+                ).strip()
 
                 for step
                 in section.get(
@@ -384,7 +450,6 @@ class CombinedSearchService:
                 ).strip()
             ]
 
-            # 검색 결과에서 보여줄 짧은 요약
             summary = (
                 " ".join(
                     steps[:3]
@@ -392,7 +457,6 @@ class CombinedSearchService:
             )
 
             if not summary:
-
                 summary = str(
                     guide.get(
                         "description",
@@ -400,28 +464,21 @@ class CombinedSearchService:
                     )
                 )
 
-            # 새로 추가한 단계라면 추가 날짜
             added_at = (
                 section.get(
                     "addedAt"
                 )
             )
 
-            # 기존 내용 수정이라면
-            # guide 전체 수정 날짜 사용
             updated_at = (
                 added_at
-                or
-                guide.get(
+                or guide.get(
                     "updatedAt"
                 )
-                or
-                ""
+                or ""
             )
 
-            # 관련도 0~100
             if max_score > 0:
-
                 relevance = round(
                     (
                         score
@@ -431,179 +488,508 @@ class CombinedSearchService:
                 )
 
             else:
-
                 relevance = 0
 
-            # -------------------------------------------------
-            # 기존 검색 결과와 같은 형태로 만들어줌
-            # -------------------------------------------------
-
-            result = {
-
-                "id": (
-                    f"guide_"
-                    f"{guide['id']}_"
-                    f"{section_index}"
-                ),
-
-                "kind": (
-                    "manual_section"
-                ),
-
-                "category": (
-                    "당직 매뉴얼"
-                ),
-
-                "documentName": str(
-                    guide.get(
-                        "title",
-                        "",
-                    )
-                ),
-
-                "civilType": (
-                    str(
-                        section.get(
-                            "title",
-                            "",
-                        )
-                    )
-                    or
-                    str(
-                        guide.get(
-                            "title",
-                            "",
-                        )
-                    )
-                ),
-
-                # 현재 업무 안내 데이터에는
-                # 별도의 담당 부서 입력칸이 없으므로
-                # 기본값 사용
-                "department": (
-                    "담당 부서 확인 필요"
-                ),
-
-                "departments": [],
-
-                "departmentContacts": [],
-
-                "paragraphSummary": (
-                    summary
-                ),
-
-                "guidance": (
-                    " ".join(
-                        steps
-                    )
-                    if steps
-                    else
-                    str(
-                        guide.get(
-                            "description",
-                            "",
-                        )
-                    )
-                ),
-
-                # 새로 추가된 단계라면
-                # 예: 2026-10-04 추가
-                "note": (
-                    f"{added_at} 추가"
-                    if added_at
-                    else ""
-                ),
-
-                "updatedAt": str(
-                    updated_at
-                ),
-
-                "relevance": max(
-                    1,
-                    min(
-                        100,
-                        relevance,
-                    ),
-                ),
-
-                "tags": (
-                    query_terms[:6]
-                ),
-
-                # 사용자 화면에서는
-                # 기존 매뉴얼과 같은 안내로 표시
-                "evidenceLevel": (
-                    "official_manual"
-                ),
-
-                "sourceReference": str(
-                    guide.get(
-                        "title",
-                        "",
-                    )
-                ),
-
-                "sourcePages": list(
-                    guide.get(
-                        "sourcePages",
-                        [],
-                    )
-                ),
-
-                "matchedPage": None,
-
-                "originalUrl": None,
-
-                "candidateCount": None,
-
-                "departmentRouting": [],
-
-                # 최신 프론트에서 사용하는
-                # 추가 필드들
-                "caseKind": None,
-
-                "intakeQuestions": [],
-
-                "immediateActions": (
-                    steps
-                ),
-
-                "decisionBranches": [],
-
-                "responseScripts": [],
-
-                "escalationRules": [],
-
-                "cautions": list(
-                    guide.get(
-                        "cautions",
-                        [],
-                    )
-                ),
-            }
 
             results.append(
-                result
+                {
+                    "id": (
+                        f"guide_"
+                        f"{guide['id']}_"
+                        f"{section_index}"
+                    ),
+
+                    "kind": (
+                        "manual_section"
+                    ),
+
+                    "category": (
+                        "당직 매뉴얼"
+                    ),
+
+                    "documentName": str(
+                        guide.get(
+                            "title",
+                            "",
+                        )
+                    ),
+
+                    "civilType": (
+                        str(
+                            section.get(
+                                "title",
+                                "",
+                            )
+                        )
+                        or
+                        str(
+                            guide.get(
+                                "title",
+                                "",
+                            )
+                        )
+                    ),
+
+                    "department": (
+                        "담당 부서 확인 필요"
+                    ),
+
+                    "departments": [],
+
+                    "departmentContacts": [],
+
+                    "paragraphSummary": (
+                        summary
+                    ),
+
+                    "guidance": (
+                        " ".join(
+                            steps
+                        )
+                        if steps
+                        else
+                        str(
+                            guide.get(
+                                "description",
+                                "",
+                            )
+                        )
+                    ),
+
+                    "note": (
+                        f"{added_at} 추가"
+                        if added_at
+                        else ""
+                    ),
+
+                    "updatedAt": str(
+                        updated_at
+                    ),
+
+                    "relevance": max(
+                        1,
+                        min(
+                            100,
+                            relevance,
+                        ),
+                    ),
+
+                    "tags": (
+                        query_terms[:6]
+                    ),
+
+                    "evidenceLevel": (
+                        "official_manual"
+                    ),
+
+                    "sourceReference": str(
+                        guide.get(
+                            "title",
+                            "",
+                        )
+                    ),
+
+                    "sourcePages": list(
+                        guide.get(
+                            "sourcePages",
+                            [],
+                        )
+                    ),
+
+                    "matchedPage": None,
+
+                    "originalUrl": None,
+
+                    "candidateCount": None,
+
+                    "departmentRouting": [],
+
+                    "caseKind": None,
+
+                    "intakeQuestions": [],
+
+                    "immediateActions": (
+                        steps
+                    ),
+
+                    "decisionBranches": [],
+
+                    "responseScripts": [],
+
+                    "escalationRules": [],
+
+                    "cautions": list(
+                        guide.get(
+                            "cautions",
+                            [],
+                        )
+                    ),
+                }
             )
 
         return results
+
+
+    # -----------------------------------------------------
+    # 전체 매뉴얼 관리자 수정/추가본 → SearchResult
+    # -----------------------------------------------------
+
+    def _make_manual_admin_results(
+        self,
+        query: str,
+        matches: list[
+            dict[str, Any]
+        ],
+    ) -> list[
+        dict[str, Any]
+    ]:
+        if not matches:
+            return []
+
+        max_score = max(
+            float(
+                item.get(
+                    "score",
+                    0,
+                )
+            )
+
+            for item
+            in matches
+        )
+
+        query_terms = re.findall(
+            r"[가-힣A-Za-z0-9]{2,}",
+            query,
+        )
+
+        results: list[
+            dict[str, Any]
+        ] = []
+
+        for match in matches:
+            entry = (
+                match[
+                    "entry"
+                ]
+            )
+
+            score = float(
+                match.get(
+                    "score",
+                    0,
+                )
+            )
+
+            if max_score > 0:
+                relevance = round(
+                    (
+                        score
+                        / max_score
+                    )
+                    * 100
+                )
+
+            else:
+                relevance = 0
+
+
+            departments = [
+                str(
+                    value
+                )
+
+                for value
+                in entry.get(
+                    "departments",
+                    [],
+                )
+
+                if str(
+                    value
+                ).strip()
+            ]
+
+
+            summary = str(
+                entry.get(
+                    "summary",
+                    "",
+                )
+            ).strip()
+
+            if not summary:
+                summary = str(
+                    entry.get(
+                        "content",
+                        "",
+                    )
+                ).strip()
+
+            if len(
+                summary
+            ) > 500:
+                summary = (
+                    summary[:497]
+                    + "..."
+                )
+
+
+            immediate_actions = list(
+                entry.get(
+                    "immediateActions",
+                    [],
+                )
+            )
+
+            content = str(
+                entry.get(
+                    "content",
+                    "",
+                )
+            ).strip()
+
+            guidance = (
+                " ".join(
+                    str(
+                        value
+                    )
+
+                    for value
+                    in immediate_actions
+
+                    if str(
+                        value
+                    ).strip()
+                )
+                or content
+                or summary
+            )
+
+
+            source_pages = [
+                int(
+                    page
+                )
+
+                for page
+                in entry.get(
+                    "sourcePages",
+                    [],
+                )
+
+                if isinstance(
+                    page,
+                    int,
+                )
+            ]
+
+
+            added_at = (
+                entry.get(
+                    "addedAt"
+                )
+            )
+
+            note = (
+                f"{added_at} 추가"
+
+                if (
+                    entry.get(
+                        "isCustom"
+                    )
+                    and added_at
+                )
+
+                else ""
+            )
+
+
+            results.append(
+                {
+                    "id": str(
+                        entry.get(
+                            "id",
+                            "",
+                        )
+                    ),
+
+                    "kind": (
+                        "manual_case"
+
+                        if entry.get(
+                            "entryType"
+                        )
+                        == "case"
+
+                        else "manual_section"
+                    ),
+
+                    "category": str(
+                        entry.get(
+                            "group",
+                            "당직 매뉴얼",
+                        )
+                    ),
+
+                    "documentName": (
+                        "당직 근무요령 및 상황별 매뉴얼"
+                    ),
+
+                    "civilType": str(
+                        entry.get(
+                            "title",
+                            "",
+                        )
+                    ),
+
+                    "department": (
+                        " · ".join(
+                            departments
+                        )
+
+                        if departments
+
+                        else
+                        "담당 부서 확인 필요"
+                    ),
+
+                    "departments": (
+                        departments
+                    ),
+
+                    "departmentContacts": [],
+
+                    "paragraphSummary": (
+                        summary
+                        or
+                        "관련 매뉴얼 내용을 확인해 주세요."
+                    ),
+
+                    "guidance": (
+                        guidance
+                        or
+                        "관련 매뉴얼 내용을 확인해 주세요."
+                    ),
+
+                    "note": (
+                        note
+                    ),
+
+                    "updatedAt": str(
+                        entry.get(
+                            "updatedAt",
+                            "",
+                        )
+                        or ""
+                    ),
+
+                    "relevance": max(
+                        1,
+                        min(
+                            100,
+                            relevance,
+                        ),
+                    ),
+
+                    "tags": (
+                        query_terms[:6]
+                    ),
+
+                    "evidenceLevel": (
+                        "official_manual"
+                    ),
+
+                    "sourceReference": (
+                        manual_service
+                        .source
+                    ),
+
+                    "sourcePages": (
+                        source_pages
+                    ),
+
+                    "matchedPage": (
+                        source_pages[0]
+                        if source_pages
+                        else None
+                    ),
+
+                    "originalUrl": None,
+
+                    "candidateCount": None,
+
+                    "departmentRouting": [],
+
+                    "caseKind": str(
+                        entry.get(
+                            "topic",
+                            "",
+                        )
+                        or ""
+                    ),
+
+                    "intakeQuestions": list(
+                        entry.get(
+                            "intakeQuestions",
+                            [],
+                        )
+                    ),
+
+                    "immediateActions": (
+                        immediate_actions
+                    ),
+
+                    "decisionBranches": list(
+                        entry.get(
+                            "decisionBranches",
+                            [],
+                        )
+                    ),
+
+                    "responseScripts": list(
+                        entry.get(
+                            "responseScripts",
+                            [],
+                        )
+                    ),
+
+                    "escalationRules": list(
+                        entry.get(
+                            "escalationRules",
+                            [],
+                        )
+                    ),
+
+                    "cautions": list(
+                        entry.get(
+                            "cautions",
+                            [],
+                        )
+                    ),
+                }
+            )
+
+        return results
+
 
     def _empty_response(
         self,
         query: str,
         message: str,
     ) -> dict[str, Any]:
-        """
-        검색 결과 없음
-        """
-
         return {
+            "query": (
+                query
+            ),
 
-            "query": query,
+            "tier": (
+                "no_match"
+            ),
 
-            "tier": "no_match",
-
-            "message": message,
+            "message": (
+                message
+            ),
 
             "resultCount": 0,
 
@@ -619,7 +1005,6 @@ class CombinedSearchService:
         }
 
 
-# 다른 파일에서 사용할 공통 객체
 combined_search_service = (
     CombinedSearchService()
 )
