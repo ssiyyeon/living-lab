@@ -19,6 +19,11 @@ __pycache__/
 # Search index cache
 search/index/
 
+# SQLite database
+backend/living_lab.db
+backend/living_lab.db-wal
+backend/living_lab.db-shm
+
 # Package manager cache
 .pnpm-store/
 
