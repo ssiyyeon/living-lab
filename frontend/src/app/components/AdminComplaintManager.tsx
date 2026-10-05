@@ -90,7 +90,13 @@ function normalizedDraft(draft: AdminManualInput): AdminManualInput {
   };
 }
 
-export function AdminComplaintManager({ onChanged }: { onChanged?: () => void }) {
+export function AdminComplaintManager({
+  onChanged,
+  initialSelectedId,
+}: {
+  onChanged?: () => void;
+  initialSelectedId?: string;
+}) {
   const [entries, setEntries] = useState<ManualCatalogEntry[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AdminManualInput | null>(null);
@@ -121,7 +127,7 @@ export function AdminComplaintManager({ onChanged }: { onChanged?: () => void })
   };
 
   useEffect(() => {
-    void loadEntries();
+    void loadEntries(initialSelectedId);
   }, []);
 
   const filteredEntries = useMemo(() => {

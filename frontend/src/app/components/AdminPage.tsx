@@ -29,7 +29,7 @@ import {
 } from "../api/search";
 import { AdminComplaintManager } from "./AdminComplaintManager";
 
-type AdminTab = "complaints" | "guides" | "contacts" | "keywords" | "users" | "history";
+export type AdminTab = "complaints" | "guides" | "contacts" | "keywords" | "users" | "history";
 
 const ADMIN_TABS = [
   { id: "complaints" as const, label: "민원 대응 관리", icon: FilePenLine },
@@ -63,8 +63,20 @@ function guideToForm(guide: QuickGuide): AdminGuideInput {
   };
 }
 
-export function AdminPage({ onGuidesChanged, onManualChanged }: { onGuidesChanged?: () => void; onManualChanged?: () => void }) {
-  const [activeTab, setActiveTab] = useState<AdminTab>("complaints");
+export function AdminPage({
+  onGuidesChanged,
+  onManualChanged,
+  initialTab = "complaints",
+  initialGuideId,
+  initialManualEntryId,
+}: {
+  onGuidesChanged?: () => void;
+  onManualChanged?: () => void;
+  initialTab?: AdminTab;
+  initialGuideId?: string;
+  initialManualEntryId?: string;
+}) {
+  const [activeTab, setActiveTab] = useState<AdminTab>(initialTab);
   const [error, setError] = useState("");
 
   const [guides, setGuides] = useState<QuickGuide[]>([]);
@@ -110,7 +122,7 @@ export function AdminPage({ onGuidesChanged, onManualChanged }: { onGuidesChange
   };
 
   useEffect(() => {
-    void Promise.all([loadGuides(), loadContacts()]);
+    void Promise.all([loadGuides(initialGuideId), loadContacts()]);
   }, []);
 
   const filteredContacts = useMemo(() => {
@@ -366,7 +378,7 @@ export function AdminPage({ onGuidesChanged, onManualChanged }: { onGuidesChange
           )}
         </div>
       ) : activeTab === "complaints" ? (
-        <AdminComplaintManager onChanged={onManualChanged} />
+        <AdminComplaintManager onChanged={onManualChanged} initialSelectedId={initialManualEntryId} />
       ) : activeTab === "keywords" ? (
         <KeywordManagementShell />
       ) : activeTab === "users" ? (

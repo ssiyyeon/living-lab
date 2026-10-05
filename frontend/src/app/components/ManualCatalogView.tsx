@@ -6,10 +6,12 @@ import {
   CircleCheck,
   ExternalLink,
   FileText,
+  Pencil,
   Search,
   X,
 } from "lucide-react";
 import { getManualPdfUrl, type ManualCatalogEntry, type ManualCatalogResponse } from "../api/search";
+import { ManualPdfPager, ManualPdfPages } from "./ManualPdfViewer";
 
 const GROUP_ORDER = [
   "당직근무자 준수사항",
@@ -194,11 +196,22 @@ function StructuredCaseContent({ entry }: { entry: ManualCatalogEntry }) {
   );
 }
 
-export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: ManualCatalogResponse; requestedEntryId?: string }) {
+export function ManualCatalogView({
+  catalog,
+  requestedEntryId,
+  canEdit = false,
+  onEditEntry,
+}: {
+  catalog: ManualCatalogResponse;
+  requestedEntryId?: string;
+  canEdit?: boolean;
+  onEditEntry?: (entryId: string) => void;
+}) {
   const requestedEntry = catalog.entries.find((entry) => entry.id === requestedEntryId);
   const [activeGroup, setActiveGroup] = useState(requestedEntry?.group ?? "전체");
   const [query, setQuery] = useState("");
   const [pdfPage, setPdfPage] = useState<number | null>(null);
+  const [openEntryId, setOpenEntryId] = useState<string | null>(requestedEntryId ?? null);
 
   useEffect(() => {
     if (!requestedEntryId) return;
@@ -206,6 +219,7 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
     if (!entry) return;
     setActiveGroup(entry.group);
     setQuery("");
+    setOpenEntryId(entry.id);
     window.requestAnimationFrame(() => {
       document.getElementById(`manual-entry-${requestedEntryId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
@@ -330,18 +344,20 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
                 </div>
 
                 <div className="divide-y border-y" style={{ borderColor: "var(--border)" }}>
-                  {entries.map((entry) => (
-                    <details
+                  {entries.map((entry) => {
+                    const isOpen = openEntryId === entry.id;
+                    return (
+                    <div
                       key={entry.id}
                       id={`manual-entry-${entry.id}`}
-                      defaultOpen={entry.id === requestedEntryId}
-                      className="group"
-                      style={{
-                        borderColor: "var(--border)",
-                        background: entry.isCustom ? "#F5F9FF" : undefined,
-                      }}
+                      style={{ background: entry.isCustom ? "#F5F9FF" : undefined }}
                     >
-                      <summary className="flex cursor-pointer list-none items-center gap-4 py-4">
+                      <button
+                        type="button"
+                        aria-expanded={isOpen}
+                        onClick={() => setOpenEntryId((current) => current === entry.id ? null : entry.id)}
+                        className="flex w-full items-center gap-4 py-4 text-left"
+                      >
                         <BookOpen className="h-4.5 w-4.5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
                         <span className="min-w-0 flex-1">
                           <span className="flex flex-wrap items-center gap-2">
@@ -363,64 +379,38 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
                             {entry.topic} · {formatPages(entry.sourcePages)}
                           </span>
                         </span>
-                        <ChevronDown className="h-4 w-4 flex-shrink-0 transition-transform group-open:rotate-180" style={{ color: "var(--muted-foreground)" }} />
-                      </summary>
+                        <ChevronDown className={`h-4 w-4 flex-shrink-0 transition-transform ${isOpen ? "rotate-180" : ""}`} style={{ color: "var(--muted-foreground)" }} />
+                      </button>
 
-                      <div className="pb-6 pl-8 sm:pl-9">
-                        {entry.sourcePages.length > 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setPdfPage(entry.sourcePages[0])}
-                            className="mb-4 inline-flex items-center gap-2 rounded-full border bg-white px-3.5 py-2 text-xs font-bold"
-                            style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
-                          >
-                            <FileText className="h-4 w-4" />
-                            원본 PDF {formatPages(entry.sourcePages)} 보기
-                          </button>
-                        )}
-                        {entry.breadcrumb.length > 0 && (
-                          <ChangeHighlight changed={entryFieldChanged(entry, "breadcrumb")}>
-                            <p className="text-[11px] leading-5" style={{ color: "var(--muted-foreground)" }}>
-                              {entry.breadcrumb.join(" › ")}
-                            </p>
-                          </ChangeHighlight>
-                        )}
-                        {entry.entryType === "case" && entry.summary && (
-                          <div className="mt-3">
-                            <ChangeHighlight changed={entryFieldChanged(entry, "summary")}>
-                              <p className="text-sm leading-6">{entry.summary}</p>
-                            </ChangeHighlight>
+                      {isOpen && (
+                        <div className="pb-6 pl-8 sm:pl-9">
+                          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>
+                              {entry.sourcePages.length > 0 ? `공식 PDF ${formatPages(entry.sourcePages)}` : "관리자 추가 내용"}
+                            </span>
+                            {canEdit && onEditEntry && (
+                              <button
+                                type="button"
+                                onClick={() => onEditEntry(entry.id)}
+                                className="inline-flex items-center gap-1.5 rounded-full border bg-white px-3 py-2 text-xs font-bold"
+                                style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
+                              >
+                                <Pencil className="h-3.5 w-3.5" /> 수정
+                              </button>
+                            )}
                           </div>
-                        )}
-
-                        <div className="mt-5">
-                          {entry.entryType === "case" ? (
-                            <StructuredCaseContent entry={entry} />
+                          {entry.sourcePages.length > 0 ? (
+                            <ManualPdfPages pages={entry.sourcePages} />
                           ) : (
-                            <ChangeHighlight changed={entryFieldChanged(entry, "content")}>
-                              <div className="whitespace-pre-line text-sm leading-7">{entry.content}</div>
-                            </ChangeHighlight>
+                            <div className="whitespace-pre-line rounded-xl border bg-white p-5 text-sm leading-7" style={{ borderColor: "var(--border)" }}>
+                              {entry.content || entry.summary || "등록된 내용이 없습니다."}
+                            </div>
                           )}
                         </div>
-
-                        {entry.entryType === "case" && entry.content && (
-                          <details className="mt-6 border-t pt-4" style={{ borderColor: "var(--border)" }}>
-                            <summary className="flex cursor-pointer items-center gap-2 text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>
-                              <span>원문 데이터 보기 · 개인정보 제외</span>
-                              {entryFieldChanged(entry, "content") && <UpdateBadge />}
-                            </summary>
-                            <div className="mt-4">
-                              <ChangeHighlight changed={entryFieldChanged(entry, "content")}>
-                                <div className="whitespace-pre-line text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
-                                  {entry.content}
-                                </div>
-                              </ChangeHighlight>
-                            </div>
-                          </details>
-                        )}
-                      </div>
-                    </details>
-                  ))}
+                      )}
+                    </div>
+                    );
+                  })}
                 </div>
               </section>
             );
@@ -463,12 +453,7 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
                 </button>
               </div>
             </header>
-            <iframe
-              key={pdfPage}
-              src={getManualPdfUrl(pdfPage)}
-              title={`유성구 당직 근무요령 및 상황별 매뉴얼 ${pdfPage}쪽`}
-              className="min-h-0 flex-1 bg-[#F3F5F7]"
-            />
+            <ManualPdfPager initialPage={pdfPage} />
           </section>
         </div>
       )}

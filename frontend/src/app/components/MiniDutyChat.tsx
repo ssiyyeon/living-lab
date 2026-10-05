@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import {
   ArrowUp,
+  BookUser,
   Building2,
   CheckCircle2,
   Loader2,
@@ -9,6 +10,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { searchComplaints, type SearchResult } from "../api/search";
+import { ContactDirectoryDrawer } from "./ContactDirectoryDrawer";
 import yusungLogo from "@/imports/image.png";
 
 interface ChatTurn {
@@ -31,6 +33,7 @@ export function MiniDutyChat() {
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isContactDirectoryOpen, setIsContactDirectoryOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -103,6 +106,19 @@ export function MiniDutyChat() {
 
   return (
     <div className="h-screen min-h-[520px] bg-[#F3F4F6] p-2 text-[#18242C]">
+      {isContactDirectoryOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="전화번호부 닫기"
+            className="fixed inset-0 z-40"
+            onClick={() => setIsContactDirectoryOpen(false)}
+            style={{ background: "rgba(17, 24, 39, 0.32)", backdropFilter: "blur(2px)" }}
+          />
+          <ContactDirectoryDrawer onClose={() => setIsContactDirectoryOpen(false)} />
+        </>
+      )}
+
       <section
         className="mx-auto flex h-full w-full max-w-[430px] flex-col overflow-hidden rounded-2xl border bg-white"
         style={{ borderColor: "var(--sidebar-border)" }}
@@ -113,16 +129,28 @@ export function MiniDutyChat() {
             <div className="h-5 w-px bg-[#D6D9DD]" />
             <h1 className="truncate text-sm font-bold">빠른 응대창</h1>
           </div>
-          <button
-            type="button"
-            onClick={() => setTurns([])}
-            disabled={turns.length === 0 || isLoading}
-            aria-label="대화 초기화"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-white disabled:opacity-30"
-            style={{ borderColor: "var(--sidebar-border)", color: "var(--muted-foreground)" }}
-          >
-            <RotateCcw className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsContactDirectoryOpen(true)}
+              aria-label="전화번호부 열기"
+              className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg border bg-white px-3 text-xs font-bold"
+              style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
+            >
+              <BookUser className="h-4 w-4" />
+              연락처
+            </button>
+            <button
+              type="button"
+              onClick={() => setTurns([])}
+              disabled={turns.length === 0 || isLoading}
+              aria-label="대화 초기화"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-lg border bg-white disabled:opacity-30"
+              style={{ borderColor: "var(--sidebar-border)", color: "var(--muted-foreground)" }}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         <div

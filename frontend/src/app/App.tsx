@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ArrowUp, Loader2, Search } from "lucide-react";
-import { AdminPage } from "./components/AdminPage";
+import { AdminPage, type AdminTab } from "./components/AdminPage";
 import { ContactDirectoryDrawer } from "./components/ContactDirectoryDrawer";
 import { LoginPage } from "./components/LoginPage";
 import { ManualCatalogView } from "./components/ManualCatalogView";
@@ -96,6 +96,7 @@ function MainApp({ user, onLoggedOut }: { user: AuthUser; onLoggedOut: () => voi
   const [manualCatalogError, setManualCatalogError] = useState("");
   const [requestedGuideId, setRequestedGuideId] = useState<string>();
   const [requestedManualEntryId, setRequestedManualEntryId] = useState<string>();
+  const [requestedAdminEdit, setRequestedAdminEdit] = useState<{ tab: AdminTab; itemId: string } | null>(null);
 
   const loadQuickGuides = () => {
     setGuideError("");
@@ -201,6 +202,7 @@ function MainApp({ user, onLoggedOut }: { user: AuthUser; onLoggedOut: () => voi
       setRequestedGuideId(undefined);
       setRequestedManualEntryId(undefined);
     }
+    setRequestedAdminEdit(null);
     if (view === "contacts") {
       setActiveView("contacts");
       setIsContactDirectoryOpen(true);
@@ -224,6 +226,12 @@ function MainApp({ user, onLoggedOut }: { user: AuthUser; onLoggedOut: () => voi
   const openEmergency = () => {
     setFocusEmergency(true);
     setActiveView("situations");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const openAdminEditor = (tab: "complaints" | "guides", itemId: string) => {
+    setRequestedAdminEdit({ tab, itemId });
+    setActiveView("admin");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -272,19 +280,39 @@ function MainApp({ user, onLoggedOut }: { user: AuthUser; onLoggedOut: () => voi
               updates={recentUpdates}
               isUpdatesLoading={!manualCatalog && !manualCatalogError}
               onOpenUpdate={openUpdate}
+              canEdit={user.role === "admin"}
+              onEditManualEntry={(entryId) => openAdminEditor("complaints", entryId)}
             />
           ) : activeView === "situations" ? (
             <SituationPage focusEmergency={focusEmergency} onSelect={(value) => void handleSearch(value)} />
           ) : activeView === "work" ? (
-            <WorkGuidePage guides={quickGuides} source={quickGuideSource} error={guideError} onOpenManual={() => navigate("manual")} requestedGuideId={requestedGuideId} />
+            <WorkGuidePage
+              guides={quickGuides}
+              source={quickGuideSource}
+              error={guideError}
+              onOpenManual={() => navigate("manual")}
+              requestedGuideId={requestedGuideId}
+              canEdit={user.role === "admin"}
+              onEditGuide={(guideId) => openAdminEditor("guides", guideId)}
+            />
           ) : activeView === "manual" ? (
             manualCatalog
-              ? <ManualCatalogView key={requestedManualEntryId ?? "manual"} catalog={manualCatalog} requestedEntryId={requestedManualEntryId} />
+              ? <ManualCatalogView
+                  key={requestedManualEntryId ?? "manual"}
+                  catalog={manualCatalog}
+                  requestedEntryId={requestedManualEntryId}
+                  canEdit={user.role === "admin"}
+                  onEditEntry={(entryId) => openAdminEditor("complaints", entryId)}
+                />
               : <LoadingState error={manualCatalogError} label="전체 매뉴얼을 불러오고 있습니다." />
           ) : activeView === "admin" && user.role === "admin" ? (
             <AdminPage
+              key={`${requestedAdminEdit?.tab ?? "default"}-${requestedAdminEdit?.itemId ?? "default"}`}
               onGuidesChanged={() => { void loadQuickGuides(); }}
               onManualChanged={() => { void loadManualCatalog(); }}
+              initialTab={requestedAdminEdit?.tab}
+              initialGuideId={requestedAdminEdit?.tab === "guides" ? requestedAdminEdit.itemId : undefined}
+              initialManualEntryId={requestedAdminEdit?.tab === "complaints" ? requestedAdminEdit.itemId : undefined}
             />
           ) : (
             <HomePage
@@ -304,6 +332,8 @@ function MainApp({ user, onLoggedOut }: { user: AuthUser; onLoggedOut: () => voi
               updates={recentUpdates}
               isUpdatesLoading={!manualCatalog && !manualCatalogError}
               onOpenUpdate={openUpdate}
+              canEdit={user.role === "admin"}
+              onEditManualEntry={(entryId) => openAdminEditor("complaints", entryId)}
             />
           )}
         </main>

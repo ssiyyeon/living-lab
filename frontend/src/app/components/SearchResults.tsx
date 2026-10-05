@@ -7,6 +7,7 @@ import {
   ChevronDown,
   ClipboardList,
   MessageSquareText,
+  Pencil,
   PhoneCall,
   RefreshCcw,
 } from "lucide-react";
@@ -19,6 +20,8 @@ interface SearchResultsProps {
   onRetry?: () => void;
   onOpenContacts?: () => void;
   onOpenManual?: () => void;
+  canEdit?: boolean;
+  onEditResult?: (entryId: string) => void;
 }
 
 type EvidenceTone = "official" | "case" | "weak";
@@ -74,6 +77,8 @@ export function SearchResults({
   onRetry,
   onOpenContacts,
   onOpenManual,
+  canEdit = false,
+  onEditResult,
 }: SearchResultsProps) {
   const result = results[0];
   const [activeBranch, setActiveBranch] = useState(0);
@@ -123,8 +128,8 @@ export function SearchResults({
   return (
     <div className="space-y-4">
       <article className="overflow-hidden border-y bg-white sm:rounded-2xl sm:border" style={{ borderColor: "var(--border)" }}>
-        <header className="px-5 py-6 sm:px-7">
-          <div className="flex flex-wrap items-center gap-2">
+        <header className="relative px-5 py-6 sm:px-7">
+          <div className="flex flex-wrap items-center gap-2 pr-12">
             <span className="rounded-full border px-3 py-1 text-xs font-extrabold" style={{ background: evidence.background, borderColor: evidence.border, color: evidence.color }}>
               {evidence.label}
             </span>
@@ -133,6 +138,18 @@ export function SearchResults({
           <h2 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">{result.civilType}</h2>
           {result.paragraphSummary && (
             <p className="mt-3 max-w-3xl text-base leading-7" style={{ color: "#4B5563" }}>{result.paragraphSummary}</p>
+          )}
+          {canEdit && onEditResult && result.kind.startsWith("manual_") && (
+            <button
+              type="button"
+              onClick={() => onEditResult(result.id)}
+              aria-label={`${result.civilType} 수정`}
+              title={`${result.civilType} 수정`}
+              className="absolute right-5 top-5 inline-flex h-10 w-10 items-center justify-center rounded-full border bg-white sm:right-7"
+              style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
           )}
         </header>
 

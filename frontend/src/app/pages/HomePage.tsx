@@ -46,6 +46,8 @@ interface HomePageProps {
   updates: HomeUpdate[];
   isUpdatesLoading: boolean;
   onOpenUpdate: (update: HomeUpdate) => void;
+  canEdit?: boolean;
+  onEditManualEntry?: (entryId: string) => void;
 }
 
 export function HomePage({
@@ -65,6 +67,8 @@ export function HomePage({
   updates,
   isUpdatesLoading,
   onOpenUpdate,
+  canEdit = false,
+  onEditManualEntry,
 }: HomePageProps) {
   return (
     <div>
@@ -200,6 +204,8 @@ export function HomePage({
             onRetry={() => onClear()}
             onOpenContacts={onOpenContacts}
             onOpenManual={onOpenManual}
+            canEdit={canEdit}
+            onEditResult={onEditManualEntry}
           />
         </section>
       )}

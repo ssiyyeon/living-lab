@@ -1,4 +1,4 @@
-import { ClipboardList, ClipboardPlus, Clock3, Loader2, NotebookPen } from "lucide-react";
+import { ClipboardList, ClipboardPlus, Clock3, Loader2, NotebookPen, Pencil } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { QuickGuide } from "../api/search";
 import { DutyTimelineDrawer } from "../components/DutyTimelineDrawer";
@@ -11,7 +11,23 @@ const WORK_ITEMS = [
   { id: "duty_basics", label: "당직 기본업무", description: "시건·순찰·인계 확인", icon: ClipboardList },
 ];
 
-export function WorkGuidePage({ guides, source, error, onOpenManual, requestedGuideId }: { guides: QuickGuide[]; source: string; error: string; onOpenManual: () => void; requestedGuideId?: string }) {
+export function WorkGuidePage({
+  guides,
+  source,
+  error,
+  onOpenManual,
+  requestedGuideId,
+  canEdit = false,
+  onEditGuide,
+}: {
+  guides: QuickGuide[];
+  source: string;
+  error: string;
+  onOpenManual: () => void;
+  requestedGuideId?: string;
+  canEdit?: boolean;
+  onEditGuide?: (guideId: string) => void;
+}) {
   const firstAvailableId = WORK_ITEMS.find((item) => guides.some((guide) => guide.id === item.id))?.id;
   const [selectedId, setSelectedId] = useState(requestedGuideId ?? firstAvailableId ?? WORK_ITEMS[0].id);
 
@@ -29,10 +45,24 @@ export function WorkGuidePage({ guides, source, error, onOpenManual, requestedGu
 
   return (
     <section>
-      <header className="border-b pb-6" style={{ borderColor: "var(--border)" }}>
-        <p className="text-sm font-bold" style={{ color: "var(--brand-green)" }}>당직 업무 한곳에서 확인</p>
-        <h1 className="mt-2 text-3xl font-extrabold">근무 안내</h1>
-        <p className="mt-2 text-base leading-7" style={{ color: "var(--muted-foreground)" }}>타임라인부터 근무일지와 민원 등록까지 필요한 안내를 선택하세요.</p>
+      <header className="flex items-start justify-between gap-4 border-b pb-6" style={{ borderColor: "var(--border)" }}>
+        <div>
+          <p className="text-sm font-bold" style={{ color: "var(--brand-green)" }}>당직 업무 한곳에서 확인</p>
+          <h1 className="mt-2 text-3xl font-extrabold">근무 안내</h1>
+          <p className="mt-2 text-base leading-7" style={{ color: "var(--muted-foreground)" }}>타임라인부터 근무일지와 민원 등록까지 필요한 안내를 선택하세요.</p>
+        </div>
+        {canEdit && selectedGuide && onEditGuide && (
+          <button
+            type="button"
+            onClick={() => onEditGuide(selectedGuide.id)}
+            aria-label={`${selectedGuide.title} 수정`}
+            title={`${selectedGuide.title} 수정`}
+            className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border bg-white"
+            style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        )}
       </header>
 
       <div className="mt-6 grid gap-2 sm:grid-cols-2 xl:grid-cols-4" role="tablist" aria-label="근무 안내 종류">
