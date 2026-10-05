@@ -11,13 +11,13 @@ import {
 import type { SearchResponse } from "../api/search";
 import { SearchResults } from "../components/SearchResults";
 
-export const EXAMPLE_QUERIES = [
-  "차가 출입구를 막고 있어요",
-  "길에 고양이가 죽어 있어요",
-  "밤에 공사장 소음이 심해요",
-  "도로에 큰 구멍이 생겼어요",
-  "유기동물을 발견했어요",
-  "쓰레기가 수거되지 않았어요",
+export const FREQUENT_COMPLAINTS = [
+  { label: "불법 주정차", query: "불법 주차" },
+  { label: "동물 사체", query: "동물 사체" },
+  { label: "가로등 고장", query: "가로등 고장" },
+  { label: "불법 현수막", query: "불법 현수막" },
+  { label: "도로 시설물 파손", query: "도로 시설물 파손" },
+  { label: "공원 시설물 파손", query: "공원 시설물 파손" },
 ];
 
 export interface HomeUpdate {
@@ -110,12 +110,17 @@ export function HomePage({
         </form>
 
         {!hasSearched && !isSearching && (
-          <div className="mt-4 flex flex-wrap gap-2">
-            {EXAMPLE_QUERIES.map((example) => (
-              <button key={example} type="button" onClick={() => onSearch(example)} className="rounded-full border bg-white px-4 py-2 text-sm transition-colors hover:border-[#5AA2D2] hover:text-[#02558E]" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
-                {example}
-              </button>
-            ))}
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-bold" style={{ color: "var(--muted-foreground)" }}>
+              자주 들어오는 민원
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {FREQUENT_COMPLAINTS.map((complaint) => (
+                <button key={complaint.label} type="button" onClick={() => onSearch(complaint.query)} className="rounded-full border bg-white px-4 py-2 text-sm font-semibold transition-colors hover:border-[#5AA2D2] hover:text-[#02558E]" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
+                  {complaint.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 

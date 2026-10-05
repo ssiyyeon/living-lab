@@ -23,6 +23,14 @@ interface SearchResultsProps {
 
 type EvidenceTone = "official" | "case" | "weak";
 
+const BRANCH_SECTION_PREFIX = "[구분] ";
+
+function branchSectionTitle(action: string) {
+  return action.startsWith(BRANCH_SECTION_PREFIX)
+    ? action.slice(BRANCH_SECTION_PREFIX.length)
+    : null;
+}
+
 function evidenceMeta(result: SearchResult): {
   tone: EvidenceTone;
   label: string;
@@ -171,7 +179,10 @@ export function SearchResults({
               <div className="mt-4 space-y-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
                 {departmentContacts.map((contact) => (
                   <div key={`${contact.department}-${contact.label}-${contact.phone}`}>
-                    <p className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{contact.label || contact.department}</p>
+                    <p className="text-sm font-extrabold">{contact.department}</p>
+                    {contact.label && contact.label !== contact.department && (
+                      <p className="mt-1 text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{contact.label}</p>
+                    )}
                     <div className="mt-2 flex flex-wrap items-center gap-2">
                       <strong className="text-base" style={{ color: "var(--brand-green-dark)" }}>{contact.phone}</strong>
                       <CopyButton value={contact.phone} label="번호 복사" compact />
@@ -234,7 +245,16 @@ export function SearchResults({
                 <div className="border-l-2 pl-5" style={{ borderColor: "var(--brand-green)" }}>
                   <h4 className="font-extrabold">{selectedBranch.condition}</h4>
                   <ul className="mt-3 space-y-2 text-sm leading-6">
-                    {selectedBranch.actions.map((action) => <li key={action}>• {action}</li>)}
+                    {selectedBranch.actions.map((action) => {
+                      const sectionTitle = branchSectionTitle(action);
+                      return sectionTitle ? (
+                        <li key={action} className="pt-3 first:pt-0">
+                          <strong className="inline-flex rounded-full px-3 py-1 text-sm" style={{ background: "#EAF4FB", color: "var(--brand-green-dark)" }}>
+                            {sectionTitle}
+                          </strong>
+                        </li>
+                      ) : <li key={action}>• {action}</li>;
+                    })}
                   </ul>
                   {selectedBranch.response && (
                     <div className="mt-5 bg-[#F7FAFC] p-4">

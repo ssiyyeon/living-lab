@@ -4,9 +4,12 @@ import {
   BookOpen,
   ChevronDown,
   CircleCheck,
+  ExternalLink,
+  FileText,
   Search,
+  X,
 } from "lucide-react";
-import type { ManualCatalogEntry, ManualCatalogResponse } from "../api/search";
+import { getManualPdfUrl, type ManualCatalogEntry, type ManualCatalogResponse } from "../api/search";
 
 const GROUP_ORDER = [
   "당직근무자 준수사항",
@@ -16,6 +19,14 @@ const GROUP_ORDER = [
   "민원유형별 대응",
   "부록",
 ];
+
+const BRANCH_SECTION_PREFIX = "[구분] ";
+
+function branchSectionTitle(action: string) {
+  return action.startsWith(BRANCH_SECTION_PREFIX)
+    ? action.slice(BRANCH_SECTION_PREFIX.length)
+    : null;
+}
 
 function formatPages(pages: number[]) {
   if (pages.length === 0) return "쪽수 확인 필요";
@@ -110,7 +121,14 @@ function StructuredCaseContent({ entry }: { entry: ManualCatalogEntry }) {
                 <div key={branch.condition} className="py-4" style={{ borderColor: "var(--border)" }}>
                   <p className="text-sm font-bold" style={{ color: "var(--brand-green-dark)" }}>{branch.condition}</p>
                   <ul className="mt-2 space-y-1.5 text-sm leading-6">
-                    {branch.actions.map((action) => <li key={action}>• {action}</li>)}
+                    {branch.actions.map((action) => {
+                      const sectionTitle = branchSectionTitle(action);
+                      return sectionTitle ? (
+                        <li key={action} className="pt-3 first:pt-0 font-extrabold" style={{ color: "var(--brand-green-dark)" }}>
+                          {sectionTitle}
+                        </li>
+                      ) : <li key={action}>• {action}</li>;
+                    })}
                   </ul>
                   {branch.response && (
                     <p className="mt-3 border-l-2 pl-3 text-sm leading-6" style={{ borderColor: "var(--brand-green)", color: "var(--muted-foreground)" }}>
@@ -180,6 +198,7 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
   const requestedEntry = catalog.entries.find((entry) => entry.id === requestedEntryId);
   const [activeGroup, setActiveGroup] = useState(requestedEntry?.group ?? "전체");
   const [query, setQuery] = useState("");
+  const [pdfPage, setPdfPage] = useState<number | null>(null);
 
   useEffect(() => {
     if (!requestedEntryId) return;
@@ -191,6 +210,20 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
       document.getElementById(`manual-entry-${requestedEntryId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
   }, [catalog.entries, requestedEntryId]);
+
+  useEffect(() => {
+    if (pdfPage === null) return;
+    const previousOverflow = document.body.style.overflow;
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setPdfPage(null);
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [pdfPage]);
 
   const groupCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -231,7 +264,18 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
               PDF 85쪽에서 정리한 일반 문서 40개와 상황별 대응 31개를 확인합니다.
             </p>
           </div>
-          <span className="text-sm font-bold" style={{ color: "var(--brand-green-dark)" }}>{catalog.totalCount}개 문서</span>
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="text-sm font-bold" style={{ color: "var(--brand-green-dark)" }}>{catalog.totalCount}개 문서</span>
+            <button
+              type="button"
+              onClick={() => setPdfPage(1)}
+              className="inline-flex items-center gap-2 rounded-full border bg-white px-4 py-2 text-sm font-bold"
+              style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
+            >
+              <FileText className="h-4 w-4" />
+              PDF 전체 보기
+            </button>
+          </div>
         </div>
 
         <div className="mt-5 flex items-center gap-3 rounded-full border bg-white px-4" style={{ borderColor: "var(--border)" }}>
@@ -323,6 +367,17 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
                       </summary>
 
                       <div className="pb-6 pl-8 sm:pl-9">
+                        {entry.sourcePages.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPdfPage(entry.sourcePages[0])}
+                            className="mb-4 inline-flex items-center gap-2 rounded-full border bg-white px-3.5 py-2 text-xs font-bold"
+                            style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}
+                          >
+                            <FileText className="h-4 w-4" />
+                            원본 PDF {formatPages(entry.sourcePages)} 보기
+                          </button>
+                        )}
                         {entry.breadcrumb.length > 0 && (
                           <ChangeHighlight changed={entryFieldChanged(entry, "breadcrumb")}>
                             <p className="text-[11px] leading-5" style={{ color: "var(--muted-foreground)" }}>
@@ -376,6 +431,47 @@ export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: Manu
       <footer className="mt-10 border-t pt-4 text-xs leading-5" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
         {catalog.source} · 표지와 목차를 제외한 전체 실무 페이지를 분류해 표시합니다.
       </footer>
+
+      {pdfPage !== null && (
+        <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-label={`공식 매뉴얼 PDF ${pdfPage}쪽`}>
+          <button
+            type="button"
+            aria-label="PDF 닫기"
+            className="absolute inset-0"
+            onClick={() => setPdfPage(null)}
+            style={{ background: "rgba(17, 24, 39, 0.48)", backdropFilter: "blur(2px)" }}
+          />
+          <section className="relative flex h-full w-full max-w-[920px] flex-col bg-white">
+            <header className="flex items-center justify-between gap-3 border-b px-4 py-3 sm:px-5" style={{ borderColor: "var(--border)" }}>
+              <div className="min-w-0">
+                <h2 className="truncate text-base font-extrabold">공식 매뉴얼 원문</h2>
+                <p className="mt-0.5 text-xs" style={{ color: "var(--muted-foreground)" }}>PDF {pdfPage}쪽부터 표시합니다.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={getManualPdfUrl(pdfPage)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold"
+                  style={{ borderColor: "var(--border)", color: "var(--brand-green-dark)" }}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  새 탭
+                </a>
+                <button type="button" onClick={() => setPdfPage(null)} aria-label="PDF 닫기" className="rounded-xl border p-2" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            </header>
+            <iframe
+              key={pdfPage}
+              src={getManualPdfUrl(pdfPage)}
+              title={`유성구 당직 근무요령 및 상황별 매뉴얼 ${pdfPage}쪽`}
+              className="min-h-0 flex-1 bg-[#F3F5F7]"
+            />
+          </section>
+        </div>
+      )}
     </article>
   );
 }

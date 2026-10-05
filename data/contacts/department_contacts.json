@@ -127,6 +127,24 @@
       "sourceUrl": "https://www.yuseong.go.kr/kor/sub06_03_20_01.do"
     },
     {
+      "department": "푸른환경과 환경정책팀",
+      "matchDepartments": ["푸른환경과", "푸른환경과 환경정책팀"],
+      "matchCaseIds": ["manual_case_018"],
+      "label": "야생동물 업무 담당",
+      "phone": "042-611-2355",
+      "note": "야생동물 구조·야생멧돼지 사체 업무 담당",
+      "sourceUrl": "https://www.yuseong.go.kr/prog/deptPerson/kor/sub06_02_02/3670176/list.do"
+    },
+    {
+      "department": "청소행정과 청소행정팀",
+      "matchDepartments": ["청소행정과", "청소행정과 청소행정팀"],
+      "matchCaseIds": ["manual_case_018"],
+      "label": "일반 로드킬·교통사고 잔해물",
+      "phone": "042-611-2363",
+      "note": "야생멧돼지를 제외한 도로 동물사체 및 교통사고 잔해물 담당",
+      "sourceUrl": ""
+    },
+    {
       "department": "푸른환경과",
       "matchDepartments": ["푸른환경과", "푸른환경과 환경정책팀"],
       "label": "푸른환경과 안내",

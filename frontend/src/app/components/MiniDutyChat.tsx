@@ -19,6 +19,14 @@ interface ChatTurn {
   selectedBranchIndex?: number;
 }
 
+const BRANCH_SECTION_PREFIX = "[구분] ";
+
+function branchSectionTitle(action: string) {
+  return action.startsWith(BRANCH_SECTION_PREFIX)
+    ? action.slice(BRANCH_SECTION_PREFIX.length)
+    : null;
+}
+
 export function MiniDutyChat() {
   const [draft, setDraft] = useState("");
   const [turns, setTurns] = useState<ChatTurn[]>([]);
@@ -278,12 +286,19 @@ function MiniAnswer({ result, selectedBranchIndex, onSelectBranch }: MiniAnswerP
             <div className="mt-3 border-l-2 py-1 pl-3" style={{ borderColor: "var(--brand-green)" }}>
               <p className="text-xs font-bold">{selectedBranch.condition}</p>
               <ul className="mt-2 space-y-1.5 text-xs leading-5">
-                {selectedBranch.actions.map((action) => (
-                  <li key={action} className="flex gap-2">
-                    <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
-                    <span>{action}</span>
-                  </li>
-                ))}
+                {selectedBranch.actions.map((action) => {
+                  const sectionTitle = branchSectionTitle(action);
+                  return sectionTitle ? (
+                    <li key={action} className="pt-2 first:pt-0 text-sm font-extrabold" style={{ color: "var(--brand-green-dark)" }}>
+                      {sectionTitle}
+                    </li>
+                  ) : (
+                    <li key={action} className="flex gap-2">
+                      <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
+                      <span>{action}</span>
+                    </li>
+                  );
+                })}
               </ul>
               {selectedBranch.response && (
                 <p className="mt-2 text-xs leading-5" style={{ color: "var(--brand-green-dark)" }}>
@@ -308,7 +323,7 @@ function MiniAnswer({ result, selectedBranchIndex, onSelectBranch }: MiniAnswerP
             style={{ color: "var(--brand-green-dark)" }}
           >
             <PhoneCall className="h-3.5 w-3.5" />
-            {contact.label} {contact.phone}
+            {contact.department} {contact.phone}
           </a>
         ))}
       </div>

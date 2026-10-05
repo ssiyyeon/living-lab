@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from fastapi import (
@@ -8,6 +9,7 @@ from fastapi import (
     HTTPException,
     status,
 )
+from fastapi.responses import FileResponse
 
 from backend.routers.auth import (
     get_current_user,
@@ -29,6 +31,16 @@ from backend.services.manual_service import (
 router = APIRouter(
     prefix="/api",
     tags=["manual"],
+)
+
+
+MANUAL_PDF_PATH = (
+    Path(__file__)
+    .resolve()
+    .parents[1]
+    / "assets"
+    / "manual"
+    / "yuseong-duty-manual-2026-05.pdf"
 )
 
 
@@ -73,6 +85,40 @@ def get_manual_catalog(
 
     return (
         _catalog_response()
+    )
+
+
+# ---------------------------------------------------------
+# 로그인 사용자용 공식 PDF 원문
+# ---------------------------------------------------------
+
+@router.get(
+    "/manual/pdf",
+    response_class=FileResponse,
+)
+def get_manual_pdf(
+    _: dict[str, Any] = Depends(
+        get_current_user
+    ),
+) -> FileResponse:
+    if not MANUAL_PDF_PATH.exists():
+        raise HTTPException(
+            status_code=(
+                status
+                .HTTP_404_NOT_FOUND
+            ),
+            detail="공식 매뉴얼 PDF를 찾을 수 없습니다.",
+        )
+
+    return FileResponse(
+        path=MANUAL_PDF_PATH,
+        media_type="application/pdf",
+        filename="yuseong-duty-manual-2026-05.pdf",
+        content_disposition_type="inline",
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

@@ -925,9 +925,8 @@ class SearchService:
         )
 
         departments = self._string_list(
-            item.get(
-                "departments"
-            )
+            action_case.get("departments")
+            or item.get("departments")
         )
 
         breadcrumb = self._string_list(
@@ -1004,17 +1003,15 @@ class SearchService:
                 departments
             ),
             "departments": departments,
-            "paragraphSummary": (
-                action_case.get("summary")
-                or excerpt
-                or "관련 원문 내용을 확인해 주세요."
-            ),
             "operatorGuidance": self._manual_operator_guidance(
                 key_actions
             ),
-            "paragraphSummary": self._manual_summary(
-                civil_type=civil_type,
-                departments=departments,
+            "paragraphSummary": (
+                action_case.get("summary")
+                or self._manual_summary(
+                    civil_type=civil_type,
+                    departments=departments,
+                )
             ),
             "keyActions": key_actions,
             "originalText": original_text,

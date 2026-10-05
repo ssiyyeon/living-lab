@@ -199,6 +199,11 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000"
 ).replace(/\/$/, "");
 
+export function getManualPdfUrl(page?: number): string {
+  const pageFragment = page && page > 0 ? `#page=${page}` : "";
+  return `${API_BASE_URL}/api/manual/pdf${pageFragment}`;
+}
+
 async function apiJson<T>(path: string, options: RequestInit = {}): Promise<T> {
   let response: Response;
   try {
