@@ -8,15 +8,65 @@ import {
   ClipboardList,
   MessageSquareText,
   PhoneCall,
+  RefreshCcw,
 } from "lucide-react";
 import type { SearchResult } from "../api/search";
+import { CopyButton } from "./CopyButton";
 
 interface SearchResultsProps {
   results: SearchResult[];
   emptyMessage?: string;
+  onRetry?: () => void;
+  onOpenContacts?: () => void;
+  onOpenManual?: () => void;
 }
 
-export function SearchResults({ results, emptyMessage }: SearchResultsProps) {
+type EvidenceTone = "official" | "case" | "weak";
+
+function evidenceMeta(result: SearchResult): {
+  tone: EvidenceTone;
+  label: string;
+  background: string;
+  border: string;
+  color: string;
+} {
+  if (result.evidenceLevel === "official_manual") {
+    return {
+      tone: "official",
+      label: "공식 매뉴얼",
+      background: "#ECF8F2",
+      border: "#72B99B",
+      color: "#126B49",
+    };
+  }
+
+  const isPastCase = result.kind.toLowerCase().includes("recurring")
+    || result.evidenceLevel.toLowerCase().includes("case");
+
+  return isPastCase
+    ? {
+        tone: "case",
+        label: "과거 처리사례",
+        background: "#EEF5FF",
+        border: "#8BB8EE",
+        color: "#155A9C",
+      }
+    : {
+        tone: "weak",
+        label: "근거 확인 필요",
+        background: "#FFF6E8",
+        border: "#E8B15D",
+        color: "#975B0C",
+      };
+}
+
+export function SearchResults({
+  results,
+  emptyMessage,
+  onRetry,
+  onOpenContacts,
+  onOpenManual,
+}: SearchResultsProps) {
   const result = results[0];
   const [activeBranch, setActiveBranch] = useState(0);
 
@@ -26,170 +76,171 @@ export function SearchResults({ results, emptyMessage }: SearchResultsProps) {
 
   if (!result) {
     return (
-      <div
-        className="rounded-2xl border bg-white px-6 py-12 text-center"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <p className="font-semibold">바로 안내할 대응 절차를 찾지 못했어요.</p>
-        <p className="mt-2 text-sm leading-6" style={{ color: "var(--muted-foreground)" }}>
-          {emptyMessage ?? "발생 위치와 현재 상황을 조금 더 구체적으로 입력해 주세요."}
+      <section className="border-y bg-white px-5 py-12 text-center" style={{ borderColor: "var(--border)" }}>
+        <h2 className="text-xl font-extrabold">일치하는 공식 대응 절차를 찾지 못했습니다.</h2>
+        <p className="mx-auto mt-3 max-w-xl text-base leading-7" style={{ color: "var(--muted-foreground)" }}>
+          {emptyMessage ?? "발생 위치, 시간, 대상, 현재 상황을 조금 더 구체적으로 입력해 주세요."}
         </p>
-      </div>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          {onRetry && (
+            <button type="button" onClick={onRetry} className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold text-white" style={{ background: "var(--brand-green)" }}>
+              <RefreshCcw className="h-4 w-4" /> 다시 검색
+            </button>
+          )}
+          {onOpenContacts && (
+            <button type="button" onClick={onOpenContacts} className="rounded-xl border bg-white px-4 py-2.5 text-sm font-bold" style={{ borderColor: "var(--border)" }}>
+              전화번호부 열기
+            </button>
+          )}
+          {onOpenManual && (
+            <button type="button" onClick={onOpenManual} className="rounded-xl border bg-white px-4 py-2.5 text-sm font-bold" style={{ borderColor: "var(--border)" }}>
+              전체 매뉴얼 보기
+            </button>
+          )}
+        </div>
+      </section>
     );
   }
 
-  const hasActionGuide =
-    result.intakeQuestions.length > 0 || result.immediateActions.length > 0;
+  const evidence = evidenceMeta(result);
   const selectedBranch = result.decisionBranches[activeBranch];
-  const isOfficial = result.evidenceLevel === "official_manual";
-  const evidenceLabel = isOfficial ? "공식 매뉴얼" : "과거 처리사례 기반";
   const departmentContacts = result.departmentContacts ?? [];
   const relatedResults = results.slice(1);
+  const immediateActions = result.immediateActions.length > 0
+    ? result.immediateActions
+    : result.guidance
+      ? [result.guidance]
+      : [];
 
   return (
-    <>
-      <article
-        className="overflow-hidden rounded-2xl border bg-white"
-        style={{ borderColor: "var(--border)" }}
-      >
-      <div className="border-b px-6 py-6 sm:px-8" style={{ borderColor: "var(--border)" }}>
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <span
-              className="inline-flex rounded-full px-3 py-1 text-xs font-bold"
-              style={{
-                background: isOfficial ? "var(--brand-green-light)" : "#FFFFFF",
-                color: isOfficial ? "var(--brand-green-dark)" : "var(--foreground)",
-                border: `1px solid ${isOfficial ? "var(--brand-green)" : "var(--border)"}`,
-              }}
-            >
-              {evidenceLabel}
+    <div className="space-y-4">
+      <article className="overflow-hidden border-y bg-white sm:rounded-2xl sm:border" style={{ borderColor: "var(--border)" }}>
+        <header className="px-5 py-6 sm:px-7">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full border px-3 py-1 text-xs font-extrabold" style={{ background: evidence.background, borderColor: evidence.border, color: evidence.color }}>
+              {evidence.label}
             </span>
-            <h2 className="mt-3 text-2xl font-extrabold">{result.civilType}</h2>
-            <p className="mt-3 max-w-2xl text-sm leading-7" style={{ color: "#4B5563" }}>
-              {result.paragraphSummary}
-            </p>
+            {result.category && <span className="text-sm font-semibold" style={{ color: "var(--muted-foreground)" }}>{result.category}</span>}
           </div>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight sm:text-3xl">{result.civilType}</h2>
+          {result.paragraphSummary && (
+            <p className="mt-3 max-w-3xl text-base leading-7" style={{ color: "#4B5563" }}>{result.paragraphSummary}</p>
+          )}
+        </header>
 
-          <div
-            className="min-w-[240px] border-l-2 px-4 py-2 sm:max-w-[290px]"
-            style={{ borderColor: "var(--brand-green)" }}
-          >
-            <div className="flex items-center gap-3">
-              <Building2 className="h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
+        {evidence.tone === "case" && (
+          <div className="mx-5 mb-5 border-l-4 px-4 py-3 text-sm leading-6 sm:mx-7" style={{ background: "#F3F7FD", borderColor: "#2B78C5", color: "#174D82" }}>
+            참고 사례입니다. 현재 공식 매뉴얼의 확정된 대응 절차가 아니므로 필요 시 담당 부서에 확인하세요.
+          </div>
+        )}
+        {evidence.tone === "weak" && (
+          <div className="mx-5 mb-5 border-l-4 px-4 py-3 text-sm leading-6 sm:mx-7" style={{ background: "#FFF8ED", borderColor: "#E08A1E", color: "#8A4C08" }}>
+            공식 근거가 충분하지 않습니다. 임의로 확정 안내하지 말고 담당 부서 또는 긴급 연락망을 확인하세요.
+          </div>
+        )}
+
+        <div className="grid border-y lg:grid-cols-[minmax(0,1fr)_330px]" style={{ borderColor: "var(--border)" }}>
+          <section className="px-5 py-6 sm:px-7" style={{ background: "#F5FAFE" }}>
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-6 w-6" style={{ color: "var(--brand-green)" }} />
+              <h3 className="text-xl font-extrabold" style={{ color: "var(--brand-green-dark)" }}>지금 해야 할 일</h3>
+            </div>
+            {immediateActions.length > 0 ? (
+              <ol className="mt-4 space-y-3 text-base leading-7">
+                {immediateActions.map((action, index) => (
+                  <li key={`${action}-${index}`} className="flex gap-3">
+                    <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full text-xs font-extrabold text-white" style={{ background: "var(--brand-green)" }}>{index + 1}</span>
+                    <span>{action}</span>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <p className="mt-3 text-sm" style={{ color: "var(--muted-foreground)" }}>담당 부서 확인 후 조치하세요.</p>
+            )}
+          </section>
+
+          <aside className="border-t bg-white px-5 py-6 lg:border-l lg:border-t-0" style={{ borderColor: "var(--border)" }}>
+            <div className="flex items-start gap-3">
+              <Building2 className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
               <div>
-                <p className="text-xs" style={{ color: "var(--muted-foreground)" }}>이첩·확인 부서</p>
-                <p className="mt-0.5 text-sm font-bold">{result.department}</p>
+                <p className="text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>담당 부서</p>
+                <p className="mt-1 text-base font-extrabold">{result.department}</p>
               </div>
             </div>
-
-            {departmentContacts.length > 0 && (
-              <div className="mt-3 space-y-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+            {departmentContacts.length > 0 ? (
+              <div className="mt-4 space-y-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
                 {departmentContacts.map((contact) => (
-                  <div key={`${contact.department}-${contact.phone}`}>
-                    <p className="text-[11px] font-semibold" style={{ color: "var(--muted-foreground)" }}>
-                      {contact.label}
-                    </p>
-                    <a
-                      href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`}
-                      className="mt-1 inline-flex items-center gap-2 text-sm font-extrabold"
-                      style={{ color: "var(--brand-green-dark)" }}
-                      aria-label={`${contact.label} ${contact.phone} 전화`}
-                    >
-                      <PhoneCall className="h-4 w-4" />
-                      {contact.phone}
-                    </a>
-                    {contact.note && (
-                      <p className="mt-1 text-[11px] leading-4" style={{ color: "var(--muted-foreground)" }}>
-                        {contact.note}
-                      </p>
-                    )}
+                  <div key={`${contact.department}-${contact.label}-${contact.phone}`}>
+                    <p className="text-xs font-semibold" style={{ color: "var(--muted-foreground)" }}>{contact.label || contact.department}</p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <strong className="text-base" style={{ color: "var(--brand-green-dark)" }}>{contact.phone}</strong>
+                      <CopyButton value={contact.phone} label="번호 복사" compact />
+                      <a href={`tel:${contact.phone.replace(/[^\d+]/g, "")}`} className="inline-flex items-center gap-1.5 rounded-lg border bg-white px-2.5 py-1.5 text-xs font-bold" style={{ borderColor: "var(--brand-green)", color: "var(--brand-green-dark)" }}>
+                        <PhoneCall className="h-3.5 w-3.5" /> 전화
+                      </a>
+                    </div>
+                    {contact.note && <p className="mt-1.5 text-xs leading-5" style={{ color: "var(--muted-foreground)" }}>{contact.note}</p>}
                   </div>
                 ))}
-                <p className="text-[10px] leading-4" style={{ color: "var(--muted-foreground)" }}>
-                  공개 업무번호 · 야간 비상연락은 당직실 비상연락망 확인
-                </p>
               </div>
+            ) : (
+              <button type="button" onClick={onOpenContacts} className="mt-4 text-sm font-bold underline underline-offset-4" style={{ color: "var(--brand-green-dark)" }}>
+                전화번호부에서 담당 부서 확인
+              </button>
             )}
-          </div>
+          </aside>
         </div>
-      </div>
 
-      {hasActionGuide ? (
-        <div className="space-y-6 px-6 py-7 sm:px-8">
-          <div className="grid gap-4 md:grid-cols-2">
-            <section className="rounded-xl border p-5" style={{ borderColor: "var(--border)" }}>
-              <div className="mb-4 flex items-center gap-2">
+        <div className="space-y-7 px-5 py-7 sm:px-7">
+          {result.intakeQuestions.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2">
                 <ClipboardList className="h-5 w-5" style={{ color: "var(--brand-green)" }} />
-                <h3 className="font-bold">먼저 확인하세요</h3>
+                <h3 className="text-lg font-extrabold">먼저 확인할 내용</h3>
               </div>
-              <ol className="space-y-3 text-sm leading-6">
+              <ol className="mt-4 grid gap-3 text-sm leading-6 sm:grid-cols-2">
                 {result.intakeQuestions.map((question, index) => (
-                  <li key={question} className="flex gap-3">
-                    <span className="font-bold" style={{ color: "var(--brand-green)" }}>{index + 1}</span>
+                  <li key={question} className="flex gap-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                    <span className="font-extrabold" style={{ color: "var(--brand-green)" }}>{index + 1}</span>
                     <span>{question}</span>
                   </li>
                 ))}
               </ol>
             </section>
-
-            <section className="rounded-xl border-l-2 bg-white p-5" style={{ borderColor: "var(--brand-green)" }}>
-              <div className="mb-4 flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" style={{ color: "var(--brand-green)" }} />
-                <h3 className="font-bold" style={{ color: "var(--brand-green-dark)" }}>지금 할 일</h3>
-              </div>
-              <ul className="space-y-3 text-sm leading-6" style={{ color: "var(--brand-green-dark)" }}>
-                {result.immediateActions.map((action) => (
-                  <li key={action} className="flex gap-2">
-                    <span>•</span>
-                    <span>{action}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          </div>
+          )}
 
           {result.decisionBranches.length > 0 && selectedBranch && (
             <section className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
-              <h3 className="font-bold">상황에 맞는 항목을 선택하세요</h3>
-              <div className="mt-4 grid gap-5 md:grid-cols-[230px_1fr]">
+              <h3 className="text-lg font-extrabold">상황별 분기</h3>
+              <div className="mt-4 grid gap-5 md:grid-cols-[230px_minmax(0,1fr)]">
                 <div className="space-y-2">
-                  {result.decisionBranches.map((branch, index) => {
-                    const isActive = activeBranch === index;
-                    return (
-                      <button
-                        type="button"
-                        key={branch.condition}
-                        onClick={() => setActiveBranch(index)}
-                        className="w-full rounded-lg border px-4 py-3 text-left text-sm font-semibold transition-colors"
-                        style={{
-                          background: isActive ? "var(--brand-green)" : "#FFFFFF",
-                          color: isActive ? "#fff" : "#4B5563",
-                          borderColor: isActive ? "var(--brand-green)" : "var(--border)",
-                        }}
-                      >
-                        {branch.condition}
-                      </button>
-                    );
-                  })}
+                  {result.decisionBranches.map((branch, index) => (
+                    <button
+                      type="button"
+                      key={branch.condition}
+                      onClick={() => setActiveBranch(index)}
+                      aria-pressed={activeBranch === index}
+                      className="w-full rounded-xl border px-4 py-3 text-left text-sm font-bold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#036EB8]"
+                      style={{
+                        background: activeBranch === index ? "var(--brand-green)" : "#FFFFFF",
+                        borderColor: activeBranch === index ? "var(--brand-green)" : "var(--border)",
+                        color: activeBranch === index ? "#FFFFFF" : "var(--foreground)",
+                      }}
+                    >
+                      {branch.condition}
+                    </button>
+                  ))}
                 </div>
-
-                <div className="rounded-xl border p-5" style={{ borderColor: "var(--border)" }}>
-                  <p className="text-base font-bold">{selectedBranch.condition}</p>
-                  <ul className="mt-4 space-y-3 text-sm leading-6">
-                    {selectedBranch.actions.map((action) => (
-                      <li key={action} className="flex gap-2">
-                        <CheckCircle2 className="mt-1 h-4 w-4 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
-                        <span>{action}</span>
-                      </li>
-                    ))}
+                <div className="border-l-2 pl-5" style={{ borderColor: "var(--brand-green)" }}>
+                  <h4 className="font-extrabold">{selectedBranch.condition}</h4>
+                  <ul className="mt-3 space-y-2 text-sm leading-6">
+                    {selectedBranch.actions.map((action) => <li key={action}>• {action}</li>)}
                   </ul>
                   {selectedBranch.response && (
-                    <div className="mt-5 border-l-2 px-4 py-2" style={{ borderColor: "var(--brand-green)" }}>
-                      <p className="mb-1 text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>
-                        민원인 안내
-                      </p>
-                      <p className="text-sm leading-6">“{selectedBranch.response}”</p>
+                    <div className="mt-5 bg-[#F7FAFC] p-4">
+                      <p className="text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>민원인 안내 문구</p>
+                      <p className="mt-2 text-sm leading-6">“{selectedBranch.response}”</p>
+                      <div className="mt-3"><CopyButton value={selectedBranch.response} label="문구 복사" compact /></div>
                     </div>
                   )}
                 </div>
@@ -198,29 +249,30 @@ export function SearchResults({ results, emptyMessage }: SearchResultsProps) {
           )}
 
           {result.responseScripts.length > 0 && (
-            <section className="rounded-xl border p-5" style={{ borderColor: "var(--brand-green)", background: "#FFFFFF" }}>
-              <div className="flex gap-3">
-                <MessageSquareText className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
-                <div>
-                  <h3 className="font-bold">이렇게 안내하세요</h3>
-                  {result.responseScripts.map((script) => (
-                    <p key={script} className="mt-2 text-sm leading-7">“{script}”</p>
-                  ))}
-                </div>
+            <section className="border-t pt-6" style={{ borderColor: "var(--border)" }}>
+              <div className="flex items-center gap-2">
+                <MessageSquareText className="h-5 w-5" style={{ color: "var(--brand-green)" }} />
+                <h3 className="text-lg font-extrabold">민원인 안내 문구</h3>
+              </div>
+              <div className="mt-4 space-y-3">
+                {result.responseScripts.map((script) => (
+                  <div key={script} className="flex flex-col gap-3 border-l-2 bg-[#F7FAFC] px-4 py-3 sm:flex-row sm:items-start" style={{ borderColor: "var(--brand-green)" }}>
+                    <p className="min-w-0 flex-1 text-sm leading-7">“{script}”</p>
+                    <CopyButton value={script} label="문구 복사" compact />
+                  </div>
+                ))}
               </div>
             </section>
           )}
 
           {(result.escalationRules.length > 0 || result.cautions.length > 0) && (
-            <section className="rounded-xl border p-5" style={{ background: "var(--brand-red-light)", borderColor: "var(--brand-red)" }}>
+            <section className="border-l-4 px-4 py-3" style={{ background: "#FFF5F3", borderColor: "var(--brand-red)", color: "var(--brand-red-dark)" }}>
               <div className="flex gap-3">
-                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-red)" }} />
+                <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
                 <div>
-                  <h3 className="font-bold" style={{ color: "var(--brand-red-dark)" }}>주의할 점</h3>
-                  <div className="mt-2 space-y-2 text-sm leading-6" style={{ color: "var(--brand-red-dark)" }}>
-                    {result.escalationRules.map((rule) => (
-                      <p key={rule.condition}><strong>{rule.condition}:</strong> {rule.action}</p>
-                    ))}
+                  <h3 className="font-extrabold">주의사항</h3>
+                  <div className="mt-2 space-y-2 text-sm leading-6">
+                    {result.escalationRules.map((rule) => <p key={rule.condition}><strong>{rule.condition}:</strong> {rule.action}</p>)}
                     {result.cautions.map((caution) => <p key={caution}>• {caution}</p>)}
                   </div>
                 </div>
@@ -228,60 +280,38 @@ export function SearchResults({ results, emptyMessage }: SearchResultsProps) {
             </section>
           )}
         </div>
-      ) : (
-        <div className="px-6 py-7 sm:px-8">
-          <h3 className="font-bold">처리 방법</h3>
-          <p className="mt-3 text-sm leading-7">{result.guidance}</p>
-        </div>
-      )}
 
-      <details className="group border-t px-6 py-4 text-sm sm:px-8" style={{ borderColor: "var(--border)" }}>
-        <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold" style={{ color: "var(--muted-foreground)" }}>
-          <BookOpen className="h-4 w-4" />
-          근거 확인
-          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
-        </summary>
-        <div className="mt-3 space-y-2 pl-6 text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
-          <p>{result.sourceReference || result.documentName}</p>
-          {result.note && <p>{result.note}</p>}
-        </div>
-      </details>
+        <details className="group border-t px-5 py-4 text-sm sm:px-7" style={{ borderColor: "var(--border)" }}>
+          <summary className="flex cursor-pointer list-none items-center gap-2 font-bold" style={{ color: "var(--muted-foreground)" }}>
+            <BookOpen className="h-4 w-4" /> 근거 문서·원문·PDF 페이지
+            <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="mt-3 space-y-2 pl-6 text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
+            <p>{result.sourceReference || result.documentName}</p>
+            {result.sourcePages.length > 0 && <p>PDF {result.sourcePages.join(", ")}쪽</p>}
+            {result.note && <p>{result.note}</p>}
+            {result.originalUrl && <a href={result.originalUrl} target="_blank" rel="noreferrer" className="font-bold underline underline-offset-4">원문 열기</a>}
+          </div>
+        </details>
       </article>
 
       {relatedResults.length > 0 && (
-        <details
-          className="group mt-3 rounded-xl border bg-white px-5 py-4 text-sm"
-          style={{ borderColor: "var(--border)" }}
-        >
-          <summary className="flex cursor-pointer list-none items-center gap-2 font-semibold">
-            <BookOpen className="h-4 w-4" style={{ color: "var(--brand-green)" }} />
-            함께 확인할 과거 처리사례
+        <details className="group rounded-xl border bg-white px-5 py-4 text-sm" style={{ borderColor: "#8BB8EE" }}>
+          <summary className="flex cursor-pointer list-none items-center gap-2 font-bold" style={{ color: "#155A9C" }}>
+            <BookOpen className="h-4 w-4" /> 함께 확인할 과거 처리사례
             <ChevronDown className="ml-auto h-4 w-4 transition-transform group-open:rotate-180" />
           </summary>
-          <div className="mt-4 space-y-4 border-t pt-4" style={{ borderColor: "var(--border)" }}>
+          <div className="mt-4 space-y-4 border-t pt-4" style={{ borderColor: "#CFE1F5" }}>
             {relatedResults.map((related) => (
               <div key={related.id}>
-                <div className="flex flex-wrap items-center gap-2">
-                  <span
-                    className="rounded-full border px-2 py-0.5 text-[10px] font-bold"
-                    style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}
-                  >
-                    과거 처리사례 기반
-                  </span>
-                  <p className="font-bold">{related.civilType}</p>
-                </div>
-                <p className="mt-2 text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
-                  {related.paragraphSummary}
-                </p>
-                <p className="mt-2 text-xs font-semibold">
-                  이첩 사례: {related.department}
-                  {related.candidateCount ? ` · ${related.candidateCount.toLocaleString()}건` : ""}
-                </p>
+                <p className="font-bold">{related.civilType}</p>
+                <p className="mt-2 text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>{related.paragraphSummary}</p>
+                <p className="mt-2 text-xs font-semibold">이첩 사례: {related.department}{related.candidateCount ? ` · ${related.candidateCount.toLocaleString()}건` : ""}</p>
               </div>
             ))}
           </div>
         </details>
       )}
-    </>
+    </div>
   );
 }

@@ -938,6 +938,69 @@ class GuideService:
             )
 
 
+        base_sections = [
+            _normalize_section(section)
+
+            for section
+            in base.get(
+                "sections",
+                [],
+            )
+
+            if isinstance(
+                section,
+                dict,
+            )
+        ]
+
+
+        changed_section_indexes = [
+            index
+
+            for index
+            in range(
+                max(
+                    len(base_sections),
+                    len(normalized_sections),
+                )
+            )
+
+            if (
+                index >= len(base_sections)
+                or index >= len(normalized_sections)
+                or base_sections[index]
+                != _normalize_section(
+                    normalized_sections[index]
+                )
+            )
+        ]
+
+
+        normalized_cautions = [
+            _clean(value)
+
+            for value
+            in cautions
+
+            if _clean(value)
+        ]
+
+
+        changed_fields: list[str] = []
+
+        if _clean(row["title"]) != _clean(base.get("title", "")):
+            changed_fields.append("title")
+
+        if _clean(row["description"]) != _clean(base.get("description", "")):
+            changed_fields.append("description")
+
+        if changed_section_indexes:
+            changed_fields.append("sections")
+
+        if normalized_cautions != list(base.get("cautions", [])):
+            changed_fields.append("cautions")
+
+
         return {
 
             **base,
@@ -958,21 +1021,19 @@ class GuideService:
                 normalized_sections
             ),
 
-            "cautions": [
-
-                _clean(value)
-
-                for value
-                in cautions
-
-                if _clean(value)
-            ],
+            "cautions": normalized_cautions,
 
             "updatedAt": str(
                 row[
                     "updated_at"
                 ]
             )[:10],
+
+            "changedFields": changed_fields,
+
+            "changedSectionIndexes": (
+                changed_section_indexes
+            ),
         }
 
 

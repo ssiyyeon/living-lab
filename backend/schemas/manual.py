@@ -88,6 +88,11 @@ class ManualCatalogEntry(BaseModel):
 
     updatedAt: str | None = None
 
+    # 원본 데이터와 비교해 관리자가 바꾼 항목명
+    changedFields: list[str] = Field(
+        default_factory=list
+    )
+
 
 class ManualCatalogResponse(BaseModel):
     source: str

@@ -1,12 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpenText,
+  FilePenLine,
+  History,
+  KeyRound,
   Loader2,
   Pencil,
   Plus,
   RotateCcw,
   Search,
   Trash2,
+  UserCog,
   UsersRound,
   X,
 } from "lucide-react";
@@ -23,8 +27,18 @@ import {
   type ContactDirectoryEntry,
   type QuickGuide,
 } from "../api/search";
+import { AdminComplaintManager } from "./AdminComplaintManager";
 
-type AdminTab = "guides" | "contacts";
+type AdminTab = "complaints" | "guides" | "contacts" | "keywords" | "users" | "history";
+
+const ADMIN_TABS = [
+  { id: "complaints" as const, label: "민원 대응 관리", icon: FilePenLine },
+  { id: "guides" as const, label: "업무 안내 관리", icon: BookOpenText },
+  { id: "contacts" as const, label: "전화번호부", icon: UsersRound },
+  { id: "keywords" as const, label: "검색 키워드 관리", icon: KeyRound },
+  { id: "users" as const, label: "사용자 계정 관리", icon: UserCog },
+  { id: "history" as const, label: "변경 이력", icon: History },
+];
 
 const GROUPS = ["대표·당직", "구청 내부", "긴급·상급기관", "담당 부서", "시설·유관기관"];
 const EMPTY_CONTACT: AdminContactInput = {
@@ -49,8 +63,8 @@ function guideToForm(guide: QuickGuide): AdminGuideInput {
   };
 }
 
-export function AdminPage({ onGuidesChanged }: { onGuidesChanged?: () => void }) {
-  const [activeTab, setActiveTab] = useState<AdminTab>("guides");
+export function AdminPage({ onGuidesChanged, onManualChanged }: { onGuidesChanged?: () => void; onManualChanged?: () => void }) {
+  const [activeTab, setActiveTab] = useState<AdminTab>("complaints");
   const [error, setError] = useState("");
 
   const [guides, setGuides] = useState<QuickGuide[]>([]);
@@ -229,17 +243,24 @@ export function AdminPage({ onGuidesChanged }: { onGuidesChanged?: () => void })
         </span>
         <h1 className="mt-3 text-3xl font-extrabold">운영 정보 관리</h1>
         <p className="mt-2 text-base leading-7" style={{ color: "var(--muted-foreground)" }}>
-          업무 안내와 공용 연락처를 수정하면 모든 당직자 화면에 바로 반영됩니다.
+          현재 연결된 업무 안내·전화번호부 API를 관리하고, 다음 단계의 운영 기능을 준비합니다.
         </p>
       </header>
 
-      <div className="mt-6 flex gap-2 border-b" style={{ borderColor: "var(--border)" }}>
-        <button type="button" onClick={() => { setActiveTab("guides"); setError(""); }} className="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-extrabold" style={{ borderColor: activeTab === "guides" ? "var(--brand-green)" : "transparent", color: activeTab === "guides" ? "var(--brand-green)" : "var(--muted-foreground)" }}>
-          <BookOpenText className="h-4.5 w-4.5" /> 업무 안내 내용
-        </button>
-        <button type="button" onClick={() => { setActiveTab("contacts"); setError(""); }} className="flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-extrabold" style={{ borderColor: activeTab === "contacts" ? "var(--brand-green)" : "transparent", color: activeTab === "contacts" ? "var(--brand-green)" : "var(--muted-foreground)" }}>
-          <UsersRound className="h-4.5 w-4.5" /> 공용 전화번호부
-        </button>
+      <div className="mt-6 flex gap-1 overflow-x-auto border-b" style={{ borderColor: "var(--border)" }} role="tablist" aria-label="관리자 기능">
+        {ADMIN_TABS.map(({ id, label, icon: Icon }) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === id}
+            onClick={() => { setActiveTab(id); setError(""); }}
+            className="flex shrink-0 items-center gap-2 border-b-2 px-3 py-3 text-sm font-extrabold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#036EB8]"
+            style={{ borderColor: activeTab === id ? "var(--brand-green)" : "transparent", color: activeTab === id ? "var(--brand-green)" : "var(--muted-foreground)" }}
+          >
+            <Icon className="h-4.5 w-4.5" /> {label}
+          </button>
+        ))}
       </div>
 
       {error && <p role="alert" className="mt-5 rounded-xl border px-4 py-3 text-sm" style={{ borderColor: "var(--brand-red)", color: "var(--brand-red-dark)" }}>{error}</p>}
@@ -305,7 +326,7 @@ export function AdminPage({ onGuidesChanged }: { onGuidesChanged?: () => void })
             </div>
           </form>
         ) : null
-      ) : (
+      ) : activeTab === "contacts" ? (
         <div>
           <div className="mt-6 flex flex-wrap gap-3">
             <label className="flex min-w-[260px] flex-1 items-center rounded-xl border bg-white px-4" style={{ borderColor: "var(--border)" }}>
@@ -344,7 +365,51 @@ export function AdminPage({ onGuidesChanged }: { onGuidesChanged?: () => void })
             </div>
           )}
         </div>
+      ) : activeTab === "complaints" ? (
+        <AdminComplaintManager onChanged={onManualChanged} />
+      ) : activeTab === "keywords" ? (
+        <KeywordManagementShell />
+      ) : activeTab === "users" ? (
+        <ApiPendingState
+          title="사용자 계정 관리"
+          description="일반 직원 계정 목록·초대·권한 변경 API가 필요합니다. 현재 로그인과 최초 관리자 생성 API는 그대로 유지됩니다."
+          endpoint="GET/POST/PATCH /api/admin/users"
+        />
+      ) : (
+        <ApiPendingState
+          title="변경 이력"
+          description="실제 변경 이력 데이터가 없어 빈 상태로 표시합니다. 백엔드에서 대상 항목·수정자·수정 시간·변경 내용·버전을 제공해야 합니다."
+          endpoint="GET /api/admin/change-history"
+        />
       )}
+    </section>
+  );
+}
+
+function KeywordManagementShell() {
+  return (
+    <section className="mt-6">
+      <div className="border-l-4 px-4 py-3 text-sm leading-6" style={{ background: "#FFF8ED", borderColor: "#E08A1E", color: "#8A4C08" }}>
+        검색 키워드 전용 API가 없어 실제 데이터를 표시하거나 저장하지 않습니다.
+      </div>
+      <div className="mt-6 border-y py-10 text-center" style={{ borderColor: "var(--border)" }}>
+        <KeyRound className="mx-auto h-8 w-8" style={{ color: "var(--muted-foreground)" }} />
+        <h2 className="mt-3 text-lg font-extrabold">등록된 키워드를 불러올 수 없습니다</h2>
+        <p className="mt-2 text-sm leading-6" style={{ color: "var(--muted-foreground)" }}>민원 대응 항목별 키워드 조회·추가·삭제 API가 연결되면 태그 편집 UI를 활성화합니다.</p>
+        <button type="button" disabled className="mt-5 rounded-xl border px-4 py-2.5 text-sm font-bold opacity-50" style={{ borderColor: "var(--border)" }}>+ 키워드 추가</button>
+      </div>
+      <p className="mt-4 text-xs" style={{ color: "var(--muted-foreground)" }}>TODO: GET/PUT /api/admin/search-keywords 연결</p>
+    </section>
+  );
+}
+
+function ApiPendingState({ title, description, endpoint }: { title: string; description: string; endpoint: string }) {
+  return (
+    <section className="mt-6 border-y py-14 text-center" style={{ borderColor: "var(--border)" }}>
+      <History className="mx-auto h-8 w-8" style={{ color: "var(--muted-foreground)" }} />
+      <h2 className="mt-3 text-xl font-extrabold">{title}</h2>
+      <p className="mx-auto mt-3 max-w-xl text-sm leading-7" style={{ color: "var(--muted-foreground)" }}>{description}</p>
+      <code className="mt-4 inline-block rounded-lg bg-[#F2F4F7] px-3 py-2 text-xs">필요 API · {endpoint}</code>
     </section>
   );
 }

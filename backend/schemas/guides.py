@@ -73,6 +73,16 @@ class QuickGuide(BaseModel):
 
     updatedAt: Optional[str] = None
 
+    # 원본 매뉴얼과 비교해 관리자가 바꾼 최상위 항목
+    changedFields: list[str] = Field(
+        default_factory=list
+    )
+
+    # sections 중 원본과 내용이 달라진 위치
+    changedSectionIndexes: list[int] = Field(
+        default_factory=list
+    )
+
 
 class QuickGuideListResponse(BaseModel):
     """

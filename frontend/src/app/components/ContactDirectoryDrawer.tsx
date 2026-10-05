@@ -6,6 +6,7 @@ import {
   Plus,
   Search,
   Star,
+  Trash2,
   X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -14,10 +15,12 @@ import {
   type ContactDirectoryEntry,
   type ContactDirectoryResponse,
 } from "../api/search";
+import { CopyButton } from "./CopyButton";
 
 const PINNED_CONTACTS_KEY = "yuseong-duty-pinned-contacts-v1";
 const CUSTOM_CONTACTS_KEY = "yuseong-duty-custom-contacts-v1";
 const CONTACT_OVERRIDES_KEY = "yuseong-duty-contact-overrides-v1";
+const HIDDEN_CONTACTS_KEY = "yuseong-duty-hidden-contacts-v1";
 
 const GROUP_ORDER = [
   "내 연락처",
@@ -68,7 +71,7 @@ function ContactRow({
 }) {
   return (
     <div className="flex items-center gap-3 bg-white px-4 py-3.5">
-      <a href={`tel:${contact.phone}`} className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1">
         <span className="block truncate text-sm font-bold">{contact.organization}</span>
         <span
           className="mt-0.5 block truncate text-[11px]"
@@ -83,7 +86,8 @@ function ContactRow({
         >
           {contact.phone}
         </span>
-      </a>
+      </div>
+      <CopyButton value={contact.phone} label="번호 복사" compact />
       <button
         type="button"
         onClick={() => onEdit(contact)}
@@ -134,6 +138,9 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
   const [contactOverrides, setContactOverrides] = useState<ContactDirectoryEntry[]>(() =>
     loadStoredArray<ContactDirectoryEntry>(CONTACT_OVERRIDES_KEY),
   );
+  const [hiddenContactIds, setHiddenContactIds] = useState<string[]>(() =>
+    loadStoredArray<string>(HIDDEN_CONTACTS_KEY),
+  );
 
   useEffect(() => {
     let isMounted = true;
@@ -166,16 +173,20 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
     window.localStorage.setItem(CONTACT_OVERRIDES_KEY, JSON.stringify(contactOverrides));
   }, [contactOverrides]);
 
+  useEffect(() => {
+    window.localStorage.setItem(HIDDEN_CONTACTS_KEY, JSON.stringify(hiddenContactIds));
+  }, [hiddenContactIds]);
+
   const allContacts = useMemo(() => {
     const overridesById = new Map(
       contactOverrides.map((contact) => [contact.id, contact]),
     );
-    const officialContacts = (directory?.contacts ?? []).map(
-      (contact) => overridesById.get(contact.id) ?? contact,
-    );
+    const officialContacts = (directory?.contacts ?? [])
+      .filter((contact) => !hiddenContactIds.includes(contact.id))
+      .map((contact) => overridesById.get(contact.id) ?? contact);
 
     return [...customContacts, ...officialContacts];
-  }, [contactOverrides, customContacts, directory]);
+  }, [contactOverrides, customContacts, directory, hiddenContactIds]);
 
   const filteredContacts = useMemo(() => {
     const normalizedQuery = query.replace(/\s+/g, "").toLowerCase();
@@ -291,6 +302,40 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
     resetForm();
   };
 
+  const handleDeleteContact = () => {
+    if (!editingContactId) return;
+
+    const contact = allContacts.find((item) => item.id === editingContactId);
+    if (!contact) {
+      setFormError("삭제할 연락처를 찾지 못했습니다.");
+      return;
+    }
+
+    if (!window.confirm(`${contact.organization} 연락처를 이 전화번호부에서 삭제할까요?`)) {
+      return;
+    }
+
+    if (editingContactId.startsWith("custom_")) {
+      setCustomContacts((current) =>
+        current.filter((item) => item.id !== editingContactId),
+      );
+    } else {
+      setHiddenContactIds((current) =>
+        current.includes(editingContactId)
+          ? current
+          : [editingContactId, ...current],
+      );
+      setContactOverrides((current) =>
+        current.filter((item) => item.id !== editingContactId),
+      );
+    }
+
+    setPinnedIds((current) =>
+      current.filter((id) => id !== editingContactId),
+    );
+    resetForm();
+  };
+
   return (
     <aside
       id="contact-directory-drawer"
@@ -397,22 +442,37 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
               />
             </div>
             {formError && <p className="mt-2 text-xs" style={{ color: "var(--brand-red-dark)" }}>{formError}</p>}
-            <div className="mt-3 flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={resetForm}
-                className="rounded-lg px-3 py-2 text-xs font-bold"
-                style={{ color: "var(--muted-foreground)" }}
-              >
-                취소
-              </button>
-              <button
-                type="submit"
-                className="rounded-lg px-4 py-2 text-xs font-bold text-white"
-                style={{ background: "var(--brand-green)" }}
-              >
-                {editingContactId ? "수정 저장" : "연락처 저장"}
-              </button>
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <div>
+                {editingContactId && (
+                  <button
+                    type="button"
+                    onClick={handleDeleteContact}
+                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold transition-colors hover:bg-[#FFF4F3]"
+                    style={{ color: "var(--brand-red-dark)" }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    삭제
+                  </button>
+                )}
+              </div>
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="rounded-lg px-3 py-2 text-xs font-bold"
+                  style={{ color: "var(--muted-foreground)" }}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-lg px-4 py-2 text-xs font-bold text-white"
+                  style={{ background: "var(--brand-green)" }}
+                >
+                  {editingContactId ? "수정 저장" : "연락처 저장"}
+                </button>
+              </div>
             </div>
           </form>
         )}
@@ -481,7 +541,7 @@ export function ContactDirectoryDrawer({ onClose }: ContactDirectoryDrawerProps)
       <footer className="border-t px-5 py-3 text-sm leading-5" style={{ borderColor: "var(--border)", color: "var(--muted-foreground)" }}>
         {directory?.notice ?? "공개 업무용 연락처만 표시합니다."}
         {directory?.verifiedAt ? ` · 확인 ${directory.verifiedAt}` : ""}
-        <span className="mt-1 block">추가·수정한 내용은 현재 브라우저에 저장됩니다.</span>
+        <span className="mt-1 block">추가·수정·삭제한 내용은 현재 브라우저에 저장됩니다.</span>
       </footer>
     </aside>
   );

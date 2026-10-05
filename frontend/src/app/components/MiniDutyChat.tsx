@@ -27,7 +27,7 @@ export function MiniDutyChat() {
 
   useEffect(() => {
     const previousTitle = document.title;
-    document.title = "미니 민원 응대 | 유성구";
+    document.title = "빠른 응대창 | 유성구";
     return () => {
       document.title = previousTitle;
     };
@@ -103,7 +103,7 @@ export function MiniDutyChat() {
           <div className="flex min-w-0 items-center gap-3">
             <img src={yusungLogo} alt="유성구 로고" className="h-7 w-auto object-contain" />
             <div className="h-5 w-px bg-[#D6D9DD]" />
-            <h1 className="truncate text-sm font-bold">미니 민원 응대</h1>
+            <h1 className="truncate text-sm font-bold">빠른 응대창</h1>
           </div>
           <button
             type="button"

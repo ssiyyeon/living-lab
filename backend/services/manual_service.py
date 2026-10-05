@@ -56,6 +56,25 @@ GROUP_ORDER = [
 ]
 
 
+MANUAL_EDITABLE_FIELDS = [
+    "entryType",
+    "group",
+    "topic",
+    "title",
+    "breadcrumb",
+    "sourcePages",
+    "departments",
+    "summary",
+    "content",
+    "intakeQuestions",
+    "immediateActions",
+    "decisionBranches",
+    "responseScripts",
+    "escalationRules",
+    "cautions",
+]
+
+
 def _now_iso() -> str:
     return datetime.now(
         timezone.utc
@@ -1454,19 +1473,31 @@ class ManualService:
                 **payload,
             }
 
+            normalized_entry = self._normalize_entry(
+                merged,
+                entry_id=entry_id,
+                is_custom=False,
+                is_modified=True,
+                added_at=None,
+                updated_at=str(
+                    row[
+                        "updated_at"
+                    ]
+                )[:10],
+            )
+
+            normalized_entry["changedFields"] = [
+                field
+
+                for field
+                in MANUAL_EDITABLE_FIELDS
+
+                if normalized_entry.get(field)
+                != base_entry.get(field)
+            ]
+
             entries.append(
-                self._normalize_entry(
-                    merged,
-                    entry_id=entry_id,
-                    is_custom=False,
-                    is_modified=True,
-                    added_at=None,
-                    updated_at=str(
-                        row[
-                            "updated_at"
-                        ]
-                    )[:10],
-                )
+                normalized_entry
             )
 
         # 관리자가 직접 추가한 민원

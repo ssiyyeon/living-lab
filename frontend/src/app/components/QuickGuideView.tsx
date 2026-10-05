@@ -14,6 +14,20 @@ interface QuickGuideViewProps {
   compact?: boolean;
 }
 
+function UpdateBadge({ added = false }: { added?: boolean }) {
+  return (
+    <span
+      className="inline-flex flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold"
+      style={{
+        background: added ? "#EAF3FF" : "#FFF1D6",
+        color: added ? "#155A9C" : "#8A5600",
+      }}
+    >
+      {added ? "추가됨" : "수정됨"}
+    </span>
+  );
+}
+
 function formatPageLabel(pages: number[]) {
   if (pages.length === 0) return "쪽수 확인 필요";
 
@@ -40,20 +54,33 @@ function formatPageLabel(pages: number[]) {
 export function QuickGuideView({ guide, source, compact = false }: QuickGuideViewProps) {
   const pageLabel = formatPageLabel(guide.sourcePages);
   const contactGroups = [...new Set((guide.contacts ?? []).map((contact) => contact.group))];
+  const changedFields = new Set(guide.changedFields ?? []);
+  const changedSectionIndexes = new Set(guide.changedSectionIndexes ?? []);
 
   if (compact) {
     return (
       <article>
-        <p className="text-base leading-7" style={{ color: "#4B5563" }}>
-          {guide.description}
-        </p>
+        <div
+          className={changedFields.has("description") ? "rounded-xl border px-4 py-3" : ""}
+          style={changedFields.has("description") ? { background: "#FFF9EC", borderColor: "#E9B45B" } : undefined}
+        >
+          {changedFields.has("description") && <div className="mb-1.5"><UpdateBadge /></div>}
+          <p className="text-base leading-7" style={{ color: "#4B5563" }}>
+            {guide.description}
+          </p>
+        </div>
 
         <div className="mt-5 space-y-4">
-          {guide.sections.map((section, sectionIndex) => (
-            <section
+          {guide.sections.map((section, sectionIndex) => {
+            const sectionChanged = changedSectionIndexes.has(sectionIndex) || Boolean(section.addedAt);
+
+            return (
+              <section
               key={`${section.title}-${section.timeLabel}`}
               className="rounded-2xl border bg-white p-4"
-              style={{ borderColor: "var(--border)" }}
+              style={sectionChanged
+                ? { borderColor: "#E9B45B", background: "#FFF9EC" }
+                : { borderColor: "var(--border)" }}
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
@@ -64,6 +91,7 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
                     {sectionIndex + 1}
                   </span>
                   <h2 className="text-base font-bold">{section.title}</h2>
+                  {sectionChanged && <UpdateBadge added={Boolean(section.addedAt)} />}
                 </div>
                 <span
                   className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm font-bold"
@@ -82,8 +110,9 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
                   </li>
                 ))}
               </ul>
-            </section>
-          ))}
+              </section>
+            );
+          })}
         </div>
 
         {contactGroups.length > 0 && (
@@ -146,6 +175,7 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
               <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-red)" }} />
               <div>
                 <h2 className="sr-only">주의사항</h2>
+                {changedFields.has("cautions") && <div className="mb-2"><UpdateBadge /></div>}
                 <ul className="space-y-1.5 text-sm leading-6" style={{ color: "var(--brand-red-dark)" }}>
                   {guide.cautions.map((caution) => <li key={caution}>• {caution}</li>)}
                 </ul>
@@ -177,16 +207,34 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
         >
           공식 매뉴얼
         </span>
-        <h1 className="mt-3 text-2xl font-extrabold">{guide.title}</h1>
-        <p className="mt-3 text-base leading-7" style={{ color: "#4B5563" }}>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-extrabold">{guide.title}</h1>
+          {changedFields.has("title") && <UpdateBadge />}
+        </div>
+        <p
+          className={`mt-3 text-base leading-7 ${changedFields.has("description") ? "rounded-lg px-3 py-2" : ""}`}
+          style={changedFields.has("description")
+            ? { color: "#4B5563", background: "#FFF9EC" }
+            : { color: "#4B5563" }}
+        >
           {guide.description}
+          {changedFields.has("description") && <span className="ml-2 align-middle"><UpdateBadge /></span>}
         </p>
       </header>
 
       <div className="px-6 py-6 sm:px-8">
         <div className="space-y-4">
-          {guide.sections.map((section, sectionIndex) => (
-            <section key={`${section.title}-${section.timeLabel}`} className="rounded-xl border p-5" style={{ borderColor: "var(--border)" }}>
+          {guide.sections.map((section, sectionIndex) => {
+            const sectionChanged = changedSectionIndexes.has(sectionIndex) || Boolean(section.addedAt);
+
+            return (
+              <section
+                key={`${section.title}-${section.timeLabel}`}
+                className="rounded-xl border p-5"
+                style={sectionChanged
+                  ? { borderColor: "#E9B45B", background: "#FFF9EC" }
+                  : { borderColor: "var(--border)" }}
+              >
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
                     <span
@@ -196,6 +244,7 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
                       {sectionIndex + 1}
                     </span>
                     <h2 className="text-lg font-bold">{section.title}</h2>
+                    {sectionChanged && <UpdateBadge added={Boolean(section.addedAt)} />}
                   </div>
                   <span
                     className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-bold"
@@ -213,8 +262,9 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
                     </li>
                   ))}
                 </ul>
-            </section>
-          ))}
+              </section>
+            );
+          })}
         </div>
 
         {contactGroups.length > 0 && (
@@ -276,6 +326,7 @@ export function QuickGuideView({ guide, source, compact = false }: QuickGuideVie
               <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" style={{ color: "var(--brand-red)" }} />
               <div>
                 <h2 className="sr-only">주의사항</h2>
+                {changedFields.has("cautions") && <div className="mb-2"><UpdateBadge /></div>}
                 <ul className="space-y-2 text-sm leading-6" style={{ color: "var(--brand-red-dark)" }}>
                   {guide.cautions.map((caution) => <li key={caution}>• {caution}</li>)}
                 </ul>

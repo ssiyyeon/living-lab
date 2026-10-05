@@ -68,6 +68,7 @@ export interface QuickGuideSection {
   title: string;
   timeLabel: string;
   steps: string[];
+  addedAt?: string | null;
 }
 
 export interface QuickGuideContact {
@@ -86,6 +87,9 @@ export interface QuickGuide {
   cautions: string[];
   contacts: QuickGuideContact[];
   restrictedNotice: string | null;
+  updatedAt?: string | null;
+  changedFields?: string[];
+  changedSectionIndexes?: number[];
 }
 
 export interface QuickGuideListResponse {
@@ -128,6 +132,11 @@ export interface ManualCatalogEntry {
   responseScripts: string[];
   escalationRules: EscalationRule[];
   cautions: string[];
+  isCustom?: boolean;
+  isModified?: boolean;
+  addedAt?: string | null;
+  updatedAt?: string | null;
+  changedFields?: string[];
 }
 
 export interface ManualCatalogResponse {
@@ -161,6 +170,29 @@ export interface AdminGuideInput {
   description: string;
   sections: QuickGuideSection[];
   cautions: string[];
+}
+
+export interface AdminManualInput {
+  entryType: "section" | "case";
+  group: string;
+  topic: string;
+  title: string;
+  breadcrumb: string[];
+  sourcePages: number[];
+  departments: string[];
+  summary: string;
+  content: string;
+  intakeQuestions: string[];
+  immediateActions: string[];
+  decisionBranches: DecisionBranch[];
+  responseScripts: string[];
+  escalationRules: EscalationRule[];
+  cautions: string[];
+}
+
+export interface ManualAdminDeleteResponse {
+  ok: boolean;
+  action: "restored" | "deleted";
 }
 
 const API_BASE_URL = (
@@ -260,6 +292,33 @@ export function updateAdminGuide(id: string, input: AdminGuideInput): Promise<Qu
 
 export async function resetAdminGuide(id: string): Promise<void> {
   await apiJson<{ ok: boolean }>(`/api/admin/guides/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+}
+
+export function fetchAdminManualCatalog(): Promise<ManualCatalogResponse> {
+  return apiJson<ManualCatalogResponse>("/api/admin/manual");
+}
+
+export function createAdminManualEntry(input: AdminManualInput): Promise<ManualCatalogEntry> {
+  return apiJson<ManualCatalogEntry>("/api/admin/manual", {
+    method: "POST",
+    body: JSON.stringify(input),
+  });
+}
+
+export function updateAdminManualEntry(
+  id: string,
+  input: AdminManualInput,
+): Promise<ManualCatalogEntry> {
+  return apiJson<ManualCatalogEntry>(`/api/admin/manual/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(input),
+  });
+}
+
+export function deleteOrRestoreAdminManualEntry(id: string): Promise<ManualAdminDeleteResponse> {
+  return apiJson<ManualAdminDeleteResponse>(`/api/admin/manual/${encodeURIComponent(id)}`, {
     method: "DELETE",
   });
 }

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   AlertTriangle,
   BookOpen,
@@ -23,118 +23,174 @@ function formatPages(pages: number[]) {
   return `${Math.min(...pages)}-${Math.max(...pages)}쪽`;
 }
 
+function entryFieldChanged(entry: ManualCatalogEntry, field: string) {
+  return entry.changedFields?.includes(field) ?? false;
+}
+
+function UpdateBadge({ added = false }: { added?: boolean }) {
+  return (
+    <span
+      className="inline-flex flex-shrink-0 rounded-full px-2 py-0.5 text-[11px] font-bold"
+      style={{
+        background: added ? "#EAF3FF" : "#FFF1D6",
+        color: added ? "#155A9C" : "#8A5600",
+      }}
+    >
+      {added ? "추가됨" : "수정됨"}
+    </span>
+  );
+}
+
+function ChangeHighlight({ changed, children }: { changed: boolean; children: ReactNode }) {
+  return (
+    <div
+      className={changed ? "rounded-xl border px-4 py-3" : ""}
+      style={changed ? { background: "#FFF9EC", borderColor: "#E9B45B" } : undefined}
+    >
+      {changed && <div className="mb-2"><UpdateBadge /></div>}
+      {children}
+    </div>
+  );
+}
+
 function StructuredCaseContent({ entry }: { entry: ManualCatalogEntry }) {
   return (
     <div className="space-y-6">
       {entry.departments.length > 0 && (
-        <section>
-          <h3 className="text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>담당 부서</h3>
-          <p className="mt-2 text-sm font-semibold">{entry.departments.join(" · ")}</p>
-        </section>
+        <ChangeHighlight changed={entryFieldChanged(entry, "departments")}>
+          <section>
+            <h3 className="text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>담당 부서</h3>
+            <p className="mt-2 text-sm font-semibold">{entry.departments.join(" · ")}</p>
+          </section>
+        </ChangeHighlight>
       )}
 
       {(entry.intakeQuestions.length > 0 || entry.immediateActions.length > 0) && (
         <div className="grid gap-6 sm:grid-cols-2">
           {entry.intakeQuestions.length > 0 && (
-            <section className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
-              <h3 className="text-sm font-bold">먼저 확인</h3>
-              <ol className="mt-3 space-y-2 text-sm leading-6">
-                {entry.intakeQuestions.map((question, index) => (
-                  <li key={question} className="flex gap-2.5">
-                    <span className="font-bold" style={{ color: "var(--brand-green)" }}>{index + 1}.</span>
-                    <span>{question}</span>
-                  </li>
-                ))}
-              </ol>
-            </section>
+            <ChangeHighlight changed={entryFieldChanged(entry, "intakeQuestions")}>
+              <section className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+                <h3 className="text-sm font-bold">먼저 확인</h3>
+                <ol className="mt-3 space-y-2 text-sm leading-6">
+                  {entry.intakeQuestions.map((question, index) => (
+                    <li key={question} className="flex gap-2.5">
+                      <span className="font-bold" style={{ color: "var(--brand-green)" }}>{index + 1}.</span>
+                      <span>{question}</span>
+                    </li>
+                  ))}
+                </ol>
+              </section>
+            </ChangeHighlight>
           )}
 
           {entry.immediateActions.length > 0 && (
-            <section className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
-              <h3 className="text-sm font-bold">즉시 조치</h3>
-              <ul className="mt-3 space-y-2 text-sm leading-6">
-                {entry.immediateActions.map((action) => (
-                  <li key={action} className="flex gap-2.5">
-                    <CircleCheck className="mt-1 h-4 w-4 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
-                    <span>{action}</span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <ChangeHighlight changed={entryFieldChanged(entry, "immediateActions")}>
+              <section className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+                <h3 className="text-sm font-bold">즉시 조치</h3>
+                <ul className="mt-3 space-y-2 text-sm leading-6">
+                  {entry.immediateActions.map((action) => (
+                    <li key={action} className="flex gap-2.5">
+                      <CircleCheck className="mt-1 h-4 w-4 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
+                      <span>{action}</span>
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            </ChangeHighlight>
           )}
         </div>
       )}
 
       {entry.decisionBranches.length > 0 && (
-        <section>
-          <h3 className="text-sm font-bold">상황별 처리</h3>
-          <div className="mt-3 divide-y border-y" style={{ borderColor: "var(--border)" }}>
-            {entry.decisionBranches.map((branch) => (
-              <div key={branch.condition} className="py-4" style={{ borderColor: "var(--border)" }}>
-                <p className="text-sm font-bold" style={{ color: "var(--brand-green-dark)" }}>{branch.condition}</p>
-                <ul className="mt-2 space-y-1.5 text-sm leading-6">
-                  {branch.actions.map((action) => <li key={action}>• {action}</li>)}
-                </ul>
-                {branch.response && (
-                  <p className="mt-3 border-l-2 pl-3 text-sm leading-6" style={{ borderColor: "var(--brand-green)", color: "var(--muted-foreground)" }}>
-                    안내 문구 · {branch.response}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-        </section>
+        <ChangeHighlight changed={entryFieldChanged(entry, "decisionBranches")}>
+          <section>
+            <h3 className="text-sm font-bold">상황별 처리</h3>
+            <div className="mt-3 divide-y border-y" style={{ borderColor: "var(--border)" }}>
+              {entry.decisionBranches.map((branch) => (
+                <div key={branch.condition} className="py-4" style={{ borderColor: "var(--border)" }}>
+                  <p className="text-sm font-bold" style={{ color: "var(--brand-green-dark)" }}>{branch.condition}</p>
+                  <ul className="mt-2 space-y-1.5 text-sm leading-6">
+                    {branch.actions.map((action) => <li key={action}>• {action}</li>)}
+                  </ul>
+                  {branch.response && (
+                    <p className="mt-3 border-l-2 pl-3 text-sm leading-6" style={{ borderColor: "var(--brand-green)", color: "var(--muted-foreground)" }}>
+                      안내 문구 · {branch.response}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        </ChangeHighlight>
       )}
 
       {entry.escalationRules.length > 0 && (
-        <section className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
-          <h3 className="text-sm font-bold">보고·상향 기준</h3>
-          <ul className="mt-3 space-y-3 text-sm leading-6">
-            {entry.escalationRules.map((rule) => (
-              <li key={`${rule.condition}-${rule.action}`}>
-                <strong>{rule.condition}</strong>
-                <span className="mt-1 block" style={{ color: "var(--muted-foreground)" }}>{rule.action}</span>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <ChangeHighlight changed={entryFieldChanged(entry, "escalationRules")}>
+          <section className="border-t pt-4" style={{ borderColor: "var(--border)" }}>
+            <h3 className="text-sm font-bold">보고·상향 기준</h3>
+            <ul className="mt-3 space-y-3 text-sm leading-6">
+              {entry.escalationRules.map((rule) => (
+                <li key={`${rule.condition}-${rule.action}`}>
+                  <strong>{rule.condition}</strong>
+                  <span className="mt-1 block" style={{ color: "var(--muted-foreground)" }}>{rule.action}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </ChangeHighlight>
       )}
 
       {entry.responseScripts.length > 0 && (
-        <section>
-          <h3 className="text-sm font-bold">민원인 안내 문구</h3>
-          <div className="mt-3 space-y-3">
-            {entry.responseScripts.map((script) => (
-              <p
-                key={script}
-                className="border-l-2 pl-4 text-sm leading-6"
-                style={{ borderColor: "var(--brand-green)", color: "var(--muted-foreground)" }}
-              >
-                {script}
-              </p>
-            ))}
-          </div>
-        </section>
+        <ChangeHighlight changed={entryFieldChanged(entry, "responseScripts")}>
+          <section>
+            <h3 className="text-sm font-bold">민원인 안내 문구</h3>
+            <div className="mt-3 space-y-3">
+              {entry.responseScripts.map((script) => (
+                <p
+                  key={script}
+                  className="border-l-2 pl-4 text-sm leading-6"
+                  style={{ borderColor: "var(--brand-green)", color: "var(--muted-foreground)" }}
+                >
+                  {script}
+                </p>
+              ))}
+            </div>
+          </section>
+        </ChangeHighlight>
       )}
 
       {entry.cautions.length > 0 && (
-        <section className="border-l-2 pl-4" style={{ borderColor: "var(--brand-red)" }}>
-          <h3 className="flex items-center gap-2 text-sm font-bold" style={{ color: "var(--brand-red-dark)" }}>
-            <AlertTriangle className="h-4 w-4" />
-            주의사항
-          </h3>
-          <ul className="mt-2 space-y-1.5 text-sm leading-6">
-            {entry.cautions.map((caution) => <li key={caution}>• {caution}</li>)}
-          </ul>
-        </section>
+        <ChangeHighlight changed={entryFieldChanged(entry, "cautions")}>
+          <section className="border-l-2 pl-4" style={{ borderColor: "var(--brand-red)" }}>
+            <h3 className="flex items-center gap-2 text-sm font-bold" style={{ color: "var(--brand-red-dark)" }}>
+              <AlertTriangle className="h-4 w-4" />
+              주의사항
+            </h3>
+            <ul className="mt-2 space-y-1.5 text-sm leading-6">
+              {entry.cautions.map((caution) => <li key={caution}>• {caution}</li>)}
+            </ul>
+          </section>
+        </ChangeHighlight>
       )}
     </div>
   );
 }
 
-export function ManualCatalogView({ catalog }: { catalog: ManualCatalogResponse }) {
-  const [activeGroup, setActiveGroup] = useState("전체");
+export function ManualCatalogView({ catalog, requestedEntryId }: { catalog: ManualCatalogResponse; requestedEntryId?: string }) {
+  const requestedEntry = catalog.entries.find((entry) => entry.id === requestedEntryId);
+  const [activeGroup, setActiveGroup] = useState(requestedEntry?.group ?? "전체");
   const [query, setQuery] = useState("");
+
+  useEffect(() => {
+    if (!requestedEntryId) return;
+    const entry = catalog.entries.find((item) => item.id === requestedEntryId);
+    if (!entry) return;
+    setActiveGroup(entry.group);
+    setQuery("");
+    window.requestAnimationFrame(() => {
+      document.getElementById(`manual-entry-${requestedEntryId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }, [catalog.entries, requestedEntryId]);
 
   const groupCounts = useMemo(() => {
     const counts = new Map<string, number>();
@@ -231,12 +287,35 @@ export function ManualCatalogView({ catalog }: { catalog: ManualCatalogResponse 
 
                 <div className="divide-y border-y" style={{ borderColor: "var(--border)" }}>
                   {entries.map((entry) => (
-                    <details key={entry.id} className="group" style={{ borderColor: "var(--border)" }}>
+                    <details
+                      key={entry.id}
+                      id={`manual-entry-${entry.id}`}
+                      defaultOpen={entry.id === requestedEntryId}
+                      className="group"
+                      style={{
+                        borderColor: "var(--border)",
+                        background: entry.isCustom ? "#F5F9FF" : undefined,
+                      }}
+                    >
                       <summary className="flex cursor-pointer list-none items-center gap-4 py-4">
                         <BookOpen className="h-4.5 w-4.5 flex-shrink-0" style={{ color: "var(--brand-green)" }} />
                         <span className="min-w-0 flex-1">
-                          <strong className="block text-sm">{entry.title}</strong>
-                          <span className="mt-1 block text-xs" style={{ color: "var(--muted-foreground)" }}>
+                          <span className="flex flex-wrap items-center gap-2">
+                            <strong
+                              className={`block text-sm ${entryFieldChanged(entry, "title") ? "rounded px-1.5 py-0.5" : ""}`}
+                              style={entryFieldChanged(entry, "title") ? { background: "#FFF1D6" } : undefined}
+                            >
+                              {entry.title}
+                            </strong>
+                            {entry.isCustom ? <UpdateBadge added /> : entry.isModified ? <UpdateBadge /> : null}
+                          </span>
+                          <span
+                            className={`mt-1 block text-xs ${entryFieldChanged(entry, "topic") ? "rounded px-1.5 py-0.5" : ""}`}
+                            style={{
+                              color: "var(--muted-foreground)",
+                              background: entryFieldChanged(entry, "topic") ? "#FFF9EC" : undefined,
+                            }}
+                          >
                             {entry.topic} · {formatPages(entry.sourcePages)}
                           </span>
                         </span>
@@ -245,29 +324,42 @@ export function ManualCatalogView({ catalog }: { catalog: ManualCatalogResponse 
 
                       <div className="pb-6 pl-8 sm:pl-9">
                         {entry.breadcrumb.length > 0 && (
-                          <p className="text-[11px] leading-5" style={{ color: "var(--muted-foreground)" }}>
-                            {entry.breadcrumb.join(" › ")}
-                          </p>
+                          <ChangeHighlight changed={entryFieldChanged(entry, "breadcrumb")}>
+                            <p className="text-[11px] leading-5" style={{ color: "var(--muted-foreground)" }}>
+                              {entry.breadcrumb.join(" › ")}
+                            </p>
+                          </ChangeHighlight>
                         )}
                         {entry.entryType === "case" && entry.summary && (
-                          <p className="mt-3 text-sm leading-6">{entry.summary}</p>
+                          <div className="mt-3">
+                            <ChangeHighlight changed={entryFieldChanged(entry, "summary")}>
+                              <p className="text-sm leading-6">{entry.summary}</p>
+                            </ChangeHighlight>
+                          </div>
                         )}
 
                         <div className="mt-5">
                           {entry.entryType === "case" ? (
                             <StructuredCaseContent entry={entry} />
                           ) : (
-                            <div className="whitespace-pre-line text-sm leading-7">{entry.content}</div>
+                            <ChangeHighlight changed={entryFieldChanged(entry, "content")}>
+                              <div className="whitespace-pre-line text-sm leading-7">{entry.content}</div>
+                            </ChangeHighlight>
                           )}
                         </div>
 
                         {entry.entryType === "case" && entry.content && (
                           <details className="mt-6 border-t pt-4" style={{ borderColor: "var(--border)" }}>
-                            <summary className="cursor-pointer text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>
-                              원문 데이터 보기 · 개인정보 제외
+                            <summary className="flex cursor-pointer items-center gap-2 text-xs font-bold" style={{ color: "var(--muted-foreground)" }}>
+                              <span>원문 데이터 보기 · 개인정보 제외</span>
+                              {entryFieldChanged(entry, "content") && <UpdateBadge />}
                             </summary>
-                            <div className="mt-4 whitespace-pre-line text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
-                              {entry.content}
+                            <div className="mt-4">
+                              <ChangeHighlight changed={entryFieldChanged(entry, "content")}>
+                                <div className="whitespace-pre-line text-xs leading-6" style={{ color: "var(--muted-foreground)" }}>
+                                  {entry.content}
+                                </div>
+                              </ChangeHighlight>
                             </div>
                           </details>
                         )}
